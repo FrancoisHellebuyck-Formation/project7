@@ -693,3 +693,5 @@ mlflow.db
 mlflow.db.lock
 .mlflow/
 .mlflow_temp/
+# Local MongoDB data
+mongodb_data/
