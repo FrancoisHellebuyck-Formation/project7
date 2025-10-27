@@ -695,3 +695,5 @@ mlflow.db.lock
 .mlflow_temp/
 # Local MongoDB data
 mongodb_data/
+CLAUDE.md
+.claude/
