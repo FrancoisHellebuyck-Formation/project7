@@ -8,10 +8,8 @@ PYTHON := python3
 UV := uv
 SRC_DIR := src
 
-# Export environment variables from .env if it exists
-# Note: We don't use 'include .env' to avoid parsing issues
-# Instead, dotenv in Python scripts will handle loading
-export $(shell [ -f .env ] && grep -v '^\#' .env | grep -v '^$$' | xargs)
+# Environment variables are loaded by Python scripts using python-dotenv
+# No need to export from Makefile - this avoids parsing issues with special characters
 
 # Couleurs pour l'affichage
 RED := \033[0;31m
@@ -40,17 +38,17 @@ run-chunks: ## Lance le pipeline de chunking des documents
 
 run-embeddings: ## Génère les embeddings et crée l'index FAISS
 	@echo "$(GREEN)🧠 Génération des embeddings et création de l'index FAISS...$(NC)"
-	$(UV) run $(PYTHON) $(SRC_DIR)/pipeline.py
+	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/pipeline.py
 	@echo "$(GREEN)✓ Embeddings générés et index créé$(NC)"
 
 run-vectorstore: ## Démarre et teste le vector store existant
 	@echo "$(GREEN)🔍 Démarrage du vector store...$(NC)"
-	$(UV) run $(PYTHON) $(SRC_DIR)/vectors/vectors.py
+	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/vectors/vectors.py
 	@echo "$(GREEN)✓ Vector store testé$(NC)"
 
 serve-vectorstore: ## Démarre le serveur de recherche vectorielle (mode interactif)
 	@echo "$(GREEN)🚀 Démarrage du serveur de recherche vectorielle...$(NC)"
-	$(UV) run $(PYTHON) $(SRC_DIR)/vectors/server.py
+	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/vectors/server.py
 
 run-agendas: ## Récupère les agendas depuis l'API OpenAgenda
 	@echo "$(GREEN)📅 Récupération des agendas...$(NC)"
