@@ -9,10 +9,9 @@ UV := uv
 SRC_DIR := src
 
 # Export environment variables from .env if it exists
-ifneq (,$(wildcard .env))
-    include .env
-    export
-endif
+# Note: We don't use 'include .env' to avoid parsing issues
+# Instead, dotenv in Python scripts will handle loading
+export $(shell [ -f .env ] && grep -v '^\#' .env | grep -v '^$$' | xargs)
 
 # Couleurs pour l'affichage
 RED := \033[0;31m
