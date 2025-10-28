@@ -1,7 +1,7 @@
 # Makefile pour le projet OpenClassrooms Project 7
 # Pipeline de traitement des données d'événements culturels
 
-.PHONY: help install run-chunks run-embeddings run-vectorstore serve-vectorstore run-agendas run-events clean lint format test docker-up docker-down
+.PHONY: help install run-chunks run-embeddings run-vectorstore serve-vectorstore run-api run-agendas run-events clean lint format test docker-up docker-down
 
 # Variables
 PYTHON := python3
@@ -49,6 +49,12 @@ run-vectorstore: ## Démarre et teste le vector store existant
 serve-vectorstore: ## Démarre le serveur de recherche vectorielle (mode interactif)
 	@echo "$(GREEN)🚀 Démarrage du serveur de recherche vectorielle...$(NC)"
 	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/vectors/server.py
+
+run-api: ## Démarre l'API FastAPI de recherche
+	@echo "$(GREEN)🌐 Démarrage de l'API FastAPI...$(NC)"
+	@echo "$(YELLOW)   API disponible sur http://localhost:8000$(NC)"
+	@echo "$(YELLOW)   Documentation sur http://localhost:8000/docs$(NC)"
+	cd $(SRC_DIR) && KMP_DUPLICATE_LIB_OK=TRUE $(UV) run uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 
 run-agendas: ## Récupère les agendas depuis l'API OpenAgenda
 	@echo "$(GREEN)📅 Récupération des agendas...$(NC)"
@@ -126,6 +132,7 @@ chunks: run-chunks ## Alias pour run-chunks
 embeddings: run-embeddings ## Alias pour run-embeddings
 vectorstore: run-vectorstore ## Alias pour run-vectorstore
 serve: serve-vectorstore ## Alias pour serve-vectorstore
+api: run-api ## Alias pour run-api
 agendas: run-agendas ## Alias pour run-agendas
 events: run-events ## Alias pour run-events
 all: run-all ## Alias pour run-all
