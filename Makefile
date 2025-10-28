@@ -1,7 +1,7 @@
 # Makefile pour le projet OpenClassrooms Project 7
 # Pipeline de traitement des données d'événements culturels
 
-.PHONY: help install run-chunks run-embeddings run-vectorstore run-agendas run-events clean lint format test docker-up docker-down
+.PHONY: help install run-chunks run-embeddings run-vectorstore serve-vectorstore run-agendas run-events clean lint format test docker-up docker-down
 
 # Variables
 PYTHON := python3
@@ -48,6 +48,10 @@ run-vectorstore: ## Démarre et teste le vector store existant
 	@echo "$(GREEN)🔍 Démarrage du vector store...$(NC)"
 	$(UV) run $(PYTHON) $(SRC_DIR)/vectors/vectors.py
 	@echo "$(GREEN)✓ Vector store testé$(NC)"
+
+serve-vectorstore: ## Démarre le serveur de recherche vectorielle (mode interactif)
+	@echo "$(GREEN)🚀 Démarrage du serveur de recherche vectorielle...$(NC)"
+	$(UV) run $(PYTHON) $(SRC_DIR)/vectors/server.py
 
 run-agendas: ## Récupère les agendas depuis l'API OpenAgenda
 	@echo "$(GREEN)📅 Récupération des agendas...$(NC)"
@@ -124,6 +128,7 @@ status: ## Affiche le statut du projet
 chunks: run-chunks ## Alias pour run-chunks
 embeddings: run-embeddings ## Alias pour run-embeddings
 vectorstore: run-vectorstore ## Alias pour run-vectorstore
+serve: serve-vectorstore ## Alias pour serve-vectorstore
 agendas: run-agendas ## Alias pour run-agendas
 events: run-events ## Alias pour run-events
 all: run-all ## Alias pour run-all
