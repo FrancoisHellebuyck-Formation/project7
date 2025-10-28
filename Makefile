@@ -33,6 +33,11 @@ run-chunks: ## Lance le pipeline de chunking des documents
 	$(UV) run $(PYTHON) $(SRC_DIR)/chunks/chunks_document.py
 	@echo "$(GREEN)✓ Pipeline de chunking terminé$(NC)"
 
+run-embeddings: ## Génère les embeddings et crée l'index FAISS
+	@echo "$(GREEN)🧠 Génération des embeddings et création de l'index FAISS...$(NC)"
+	$(UV) run $(PYTHON) $(SRC_DIR)/pipeline.py
+	@echo "$(GREEN)✓ Embeddings générés et index créé$(NC)"
+
 run-agendas: ## Récupère les agendas depuis l'API OpenAgenda
 	@echo "$(GREEN)📅 Récupération des agendas...$(NC)"
 	$(UV) run $(PYTHON) $(SRC_DIR)/corpus/get_corpus_agendas.py
@@ -43,7 +48,7 @@ run-events: ## Récupère les événements depuis l'API OpenAgenda
 	$(UV) run $(PYTHON) $(SRC_DIR)/corpus/get_corpus_events.py
 	@echo "$(GREEN)✓ Événements récupérés$(NC)"
 
-run-all: run-agendas run-events run-chunks ## Lance le pipeline complet (agendas → événements → chunks)
+run-all: run-agendas run-events run-chunks run-embeddings ## Lance le pipeline complet (agendas → événements → chunks → embeddings)
 	@echo "$(GREEN)✓ Pipeline complet terminé avec succès !$(NC)"
 
 lint: ## Vérifie le code avec flake8
@@ -106,6 +111,7 @@ status: ## Affiche le statut du projet
 
 # Alias pratiques
 chunks: run-chunks ## Alias pour run-chunks
+embeddings: run-embeddings ## Alias pour run-embeddings
 agendas: run-agendas ## Alias pour run-agendas
 events: run-events ## Alias pour run-events
 all: run-all ## Alias pour run-all

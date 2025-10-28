@@ -6,12 +6,20 @@ de texte optimisés pour la recherche sémantique et l'indexation vectorielle.
 """
 
 from typing import List, Dict, Any, Optional
+import logging
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from dotenv import load_dotenv
 import os
+
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 def get_mongodb_connection() -> tuple[MongoClient, Collection]:
@@ -220,17 +228,17 @@ def process_events_to_chunks(
     documents = load_documents_from_mongodb(events_collection, query, limit)
 
     if verbose:
-        print(f"Nombre de documents chargés : {len(documents)}")
+        logger.info(f"Nombre de documents chargés : {len(documents)}")
 
     # Découper en chunks
     chunks = split_documents_into_chunks(documents, chunk_size, chunk_overlap)
 
     if verbose:
-        print(f"Nombre de chunks créés : {len(chunks)}")
+        logger.info(f"Nombre de chunks créés : {len(chunks)}")
         if chunks:
-            print("\n--- Premier chunk ---")
-            print(f"Contenu:\n{chunks[0].page_content}")
-            print(f"\nMétadonnées:\n{chunks[0].metadata}")
+            logger.info("\n--- Premier chunk ---")
+            logger.info(f"Contenu:\n{chunks[0].page_content}")
+            logger.info(f"\nMétadonnées:\n{chunks[0].metadata}")
 
     return chunks
 
@@ -250,12 +258,12 @@ def main():
             verbose=True
         )
 
-        print(f"\n✓ Pipeline terminé avec succès: {len(chunks)} chunks créés")
+        logger.info(f"\n✓ Pipeline terminé avec succès: {len(chunks)} chunks créés")
 
     finally:
         # Fermer la connexion
         client.close()
-        print("Connexion à MongoDB fermée.")
+        logger.info("Connexion à MongoDB fermée.")
 
 
 if __name__ == "__main__":

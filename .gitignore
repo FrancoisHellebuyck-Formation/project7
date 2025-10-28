@@ -697,3 +697,4 @@ mlflow.db.lock
 mongodb_data/
 CLAUDE.md
 .claude/
+data/faiss_index
