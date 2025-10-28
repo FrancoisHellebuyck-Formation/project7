@@ -8,6 +8,12 @@ PYTHON := python3
 UV := uv
 SRC_DIR := src
 
+# Export environment variables from .env if it exists
+ifneq (,$(wildcard .env))
+    include .env
+    export
+endif
+
 # Couleurs pour l'affichage
 RED := \033[0;31m
 GREEN := \033[0;32m
