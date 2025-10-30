@@ -4,21 +4,17 @@ services:
   # Base de données MongoDB
   mongodb:
     image: mongo:latest
-    container_name: oc_project7_mongodb
-    restart: unless-stopped
+    container_name: my_mongodb
+    restart: always
     ports:
-      - "27017:27017"
+      - "27017:27017" # Mappe le port MongoDB par défaut de l'hôte au conteneur
     volumes:
-      - mongodb_data:/data/db
+      - mongodb_data:/data/db # Volume persistant pour les données MongoDB
+      # - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro # Exemple pour un script d'initialisation
     environment:
-      - MONGO_INITDB_DATABASE=OA
-    networks:
-      - project7_network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      # - MONGO_INITDB_ROOT_USERNAME=admin # Décommenter et définir pour un utilisateur root
+      # - MONGO_INITDB_ROOT_PASSWORD=password # Décommenter et définir pour un mot de passe root
+      - MONGO_INITDB_DATABASE=OA # Nom de la base de données par défaut
 
   # API de recherche sémantique
   api:
@@ -43,11 +39,8 @@ services:
       - ./data/faiss_index:/app/data/faiss_index:ro
     networks:
       - project7_network
-    depends_on:
-      mongodb:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
