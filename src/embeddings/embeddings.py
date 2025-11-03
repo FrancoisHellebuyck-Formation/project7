@@ -17,8 +17,7 @@ from langchain_core.embeddings import Embeddings
 
 # Configuration du logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ class E5Embeddings(Embeddings):
         model_id: str = "intfloat/multilingual-e5-large",
         device: Optional[str] = None,
         batch_size: int = 32,
-        max_length: int = 512
+        max_length: int = 512,
     ):
         """
         Initialise le modèle E5 pour les embeddings.
@@ -77,10 +76,12 @@ class E5Embeddings(Embeddings):
         self.model.to(self.device)
         self.model.eval()
 
-        logger.info(f"✓ Modèle chargé avec succès (dimension: 1024)")
+        logger.info("✓ Modèle chargé avec succès (dimension: 1024)")
 
     @staticmethod
-    def average_pool(last_hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+    def average_pool(
+        last_hidden_states: torch.Tensor, attention_mask: torch.Tensor
+    ) -> torch.Tensor:
         """
         Applique un pooling moyen sur les hidden states en tenant compte du masque d'attention.
 
@@ -97,7 +98,9 @@ class E5Embeddings(Embeddings):
             torch.Tensor: Embeddings moyennés [batch, hidden_dim]
         """
         # Masquer les tokens de padding (remplace par 0.0)
-        last_hidden = last_hidden_states.masked_fill(~attention_mask[..., None].bool(), 0.0)
+        last_hidden = last_hidden_states.masked_fill(
+            ~attention_mask[..., None].bool(), 0.0
+        )
         # Somme des vecteurs (sans padding)
         sum_embeddings = last_hidden.sum(dim=1)
         # Nombre de tokens non-padding
@@ -127,7 +130,7 @@ class E5Embeddings(Embeddings):
 
         # Traiter par batch pour l'efficacité
         for i in range(0, len(prefixed_texts), self.batch_size):
-            batch_texts = prefixed_texts[i:i + self.batch_size]
+            batch_texts = prefixed_texts[i : i + self.batch_size]
 
             # Tokenisation
             batch_dict = self.tokenizer(
@@ -135,7 +138,7 @@ class E5Embeddings(Embeddings):
                 max_length=self.max_length,
                 padding=True,
                 truncation=True,
-                return_tensors='pt'
+                return_tensors="pt",
             )
             # Déplacer les tenseurs sur le device approprié
             batch_dict = {k: v.to(self.device) for k, v in batch_dict.items()}
@@ -146,8 +149,7 @@ class E5Embeddings(Embeddings):
 
             # Pooling moyen avec masking
             embeddings = self.average_pool(
-                outputs.last_hidden_state,
-                batch_dict['attention_mask']
+                outputs.last_hidden_state, batch_dict["attention_mask"]
             )
 
             # Normalisation L2 (recommandé pour la similarité cosinus)
@@ -193,9 +195,7 @@ class E5Embeddings(Embeddings):
 
 
 def get_embeddings_model(
-    model_id: Optional[str] = None,
-    device: Optional[str] = None,
-    batch_size: int = 32
+    model_id: Optional[str] = None, device: Optional[str] = None, batch_size: int = 32
 ) -> E5Embeddings:
     """
     Factory function pour créer une instance du modèle d'embeddings E5.
@@ -212,20 +212,16 @@ def get_embeddings_model(
         model_id = os.getenv("EMBEDDINGS_MODEL", "intfloat/multilingual-e5-large")
 
     logger.info(f"Initialisation du modèle d'embeddings: {model_id}")
-    return E5Embeddings(
-        model_id=model_id,
-        device=device,
-        batch_size=batch_size
-    )
+    return E5Embeddings(model_id=model_id, device=device, batch_size=batch_size)
 
 
 def main():
     """
     Fonction de test pour vérifier le fonctionnement du modèle d'embeddings.
     """
-    logger.info("="*70)
+    logger.info("=" * 70)
     logger.info("TEST DU MODULE EMBEDDINGS")
-    logger.info("="*70)
+    logger.info("=" * 70)
 
     # Créer le modèle
     embeddings = get_embeddings_model()
@@ -234,7 +230,7 @@ def main():
     test_documents = [
         "Le Louvre abrite la Joconde.",
         "La Tour Eiffel est un monument emblématique de Paris.",
-        "Le château de Versailles attire des millions de visiteurs chaque année."
+        "Le château de Versailles attire des millions de visiteurs chaque année.",
     ]
 
     test_query = "Musée à Paris"
@@ -259,9 +255,9 @@ def main():
         similarity = np.dot(query_vec, doc_vec)  # Les vecteurs sont déjà normalisés
         logger.info(f"   Doc {i+1}: {similarity:.4f} - {doc[:50]}...")
 
-    logger.info("\n" + "="*70)
+    logger.info("\n" + "=" * 70)
     logger.info("✓ TEST TERMINÉ AVEC SUCCÈS")
-    logger.info("="*70)
+    logger.info("=" * 70)
 
 
 if __name__ == "__main__":

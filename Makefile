@@ -56,6 +56,17 @@ run-api: ## Démarre l'API FastAPI de recherche
 	@echo "$(YELLOW)   Documentation sur http://localhost:8000/docs$(NC)"
 	cd $(SRC_DIR) && KMP_DUPLICATE_LIB_OK=TRUE $(UV) run uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 
+run-chat: ## Lance le chatbot Mistral CLI avec RAG
+	@echo "$(GREEN)💬 Démarrage du chatbot Mistral CLI avec RAG...$(NC)"
+	@echo "$(YELLOW)   Assurez-vous que l'API RAG est démarrée (make run-api)$(NC)"
+	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/chat/mistral.py
+
+run-ui: ## Lance l'interface Streamlit du chatbot
+	@echo "$(GREEN)🎨 Démarrage de l'interface Streamlit...$(NC)"
+	@echo "$(YELLOW)   Assurez-vous que l'API RAG est démarrée (make run-api)$(NC)"
+	@echo "$(YELLOW)   Interface disponible sur http://localhost:8501$(NC)"
+	$(UV) run streamlit run $(SRC_DIR)/ui/chatbot.py
+
 run-agendas: ## Récupère les agendas depuis l'API OpenAgenda
 	@echo "$(GREEN)📅 Récupération des agendas...$(NC)"
 	$(UV) run $(PYTHON) $(SRC_DIR)/corpus/get_corpus_agendas.py

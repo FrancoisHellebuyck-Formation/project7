@@ -25,8 +25,7 @@ from vectors import (
 
 # Configuration du logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -39,16 +38,20 @@ class VectorStoreServer:
     pour effectuer des recherches sémantiques.
     """
 
-    def __init__(self, index_path: str, model_id: Optional[str] = None):
+    def __init__(
+        self, index_path: str, model_id: Optional[str] = None, device: Optional[str] = None
+    ):
         """
         Initialise le serveur avec un vector store.
 
         Args:
             index_path: Chemin vers l'index FAISS
             model_id: Identifiant du modèle d'embeddings (optionnel)
+            device: Device pour les embeddings (cuda, mps, cpu, ou None pour auto)
         """
         self.index_path = index_path
         self.model_id = model_id
+        self.device = device
         self.embeddings = None
         self.vector_store = None
         self.is_loaded = False
@@ -57,9 +60,9 @@ class VectorStoreServer:
         """
         Démarre le serveur en chargeant le vector store en mémoire.
         """
-        logger.info("="*70)
+        logger.info("=" * 70)
         logger.info("DÉMARRAGE DU SERVEUR DE RECHERCHE VECTORIELLE")
-        logger.info("="*70)
+        logger.info("=" * 70)
 
         # Vérifier que l'index existe
         if not Path(self.index_path).exists():
@@ -70,14 +73,14 @@ class VectorStoreServer:
         try:
             # 1. Charger le modèle d'embeddings
             logger.info("\n[1/2] Chargement du modèle d'embeddings...")
-            self.embeddings = get_embeddings_model(model_id=self.model_id)
+            self.embeddings = get_embeddings_model(
+                model_id=self.model_id, device=self.device
+            )
 
             # 2. Charger le vector store
             logger.info("\n[2/2] Chargement du vector store...")
             self.vector_store = load_vector_store(
-                self.index_path,
-                self.embeddings,
-                verbose=True
+                self.index_path, self.embeddings, verbose=True
             )
 
             # Afficher les statistiques
@@ -85,9 +88,9 @@ class VectorStoreServer:
 
             self.is_loaded = True
 
-            logger.info("\n" + "="*70)
+            logger.info("\n" + "=" * 70)
             logger.info("✅ SERVEUR PRÊT - En attente de requêtes")
-            logger.info("="*70)
+            logger.info("=" * 70)
             logger.info(f"📊 {stats['num_vectors']:,} vecteurs indexés")
             logger.info(f"📐 Dimension: {stats['dimension']}")
             logger.info("\nCommandes disponibles:")
@@ -95,7 +98,7 @@ class VectorStoreServer:
             logger.info("  - 'stats' pour afficher les statistiques")
             logger.info("  - 'help' pour l'aide")
             logger.info("  - 'quit' ou 'exit' pour quitter")
-            logger.info("="*70)
+            logger.info("=" * 70)
 
         except Exception as e:
             logger.error(f"❌ Erreur lors du démarrage: {e}", exc_info=True)
@@ -126,7 +129,7 @@ class VectorStoreServer:
                 self.vector_store,
                 query,
                 k=k,
-                verbose=False  # On gère l'affichage nous-mêmes
+                verbose=False,  # On gère l'affichage nous-mêmes
             )
 
             if not results:
@@ -145,7 +148,7 @@ class VectorStoreServer:
                 logger.info(f"🏷️  Région: {doc.metadata.get('region', 'N/A')}")
 
                 # Afficher les mots-clés si disponibles
-                keywords = doc.metadata.get('keywords', [])
+                keywords = doc.metadata.get("keywords", [])
                 if keywords:
                     logger.info(f"🔖 Mots-clés: {', '.join(keywords[:5])}")
 
@@ -165,13 +168,16 @@ class VectorStoreServer:
             logger.error("❌ Le serveur n'est pas démarré.")
             return
 
-        logger.info("\n" + "="*70)
+        logger.info("\n" + "=" * 70)
         logger.info("📊 STATISTIQUES DU VECTOR STORE")
-        logger.info("="*70)
-        stats = get_vector_store_stats(self.vector_store, verbose=True)
+        logger.info("=" * 70)
+        stats = get_vector_store_stats(self.vector_store, verbose=False)
+        logger.info(f"  - Nombre de vecteurs: {stats['num_vectors']:,}")
+        logger.info(f"  - Dimension: {stats['dimension']}")
         logger.info(f"📂 Chemin: {self.index_path}")
         logger.info(f"🤖 Modèle: {self.model_id or 'intfloat/multilingual-e5-large'}")
-        logger.info("="*70 + "\n")
+        logger.info(f"🖥️  Device: {self.device or 'auto-détection'}")
+        logger.info("=" * 70 + "\n")
 
     def run_repl(self) -> None:
         """
@@ -192,17 +198,17 @@ class VectorStoreServer:
                     continue
 
                 # Commandes spéciales
-                if user_input.lower() in ['quit', 'exit', 'q']:
+                if user_input.lower() in ["quit", "exit", "q"]:
                     logger.info("\n👋 Arrêt du serveur...")
                     break
 
-                elif user_input.lower() == 'stats':
+                elif user_input.lower() == "stats":
                     self.show_stats()
 
-                elif user_input.lower() == 'help':
+                elif user_input.lower() == "help":
                     self.show_help()
 
-                elif user_input.lower().startswith('top'):
+                elif user_input.lower().startswith("top"):
                     # Permet de spécifier le nombre de résultats: "top 10"
                     parts = user_input.split()
                     if len(parts) == 2 and parts[1].isdigit():
@@ -228,10 +234,11 @@ class VectorStoreServer:
 
     def show_help(self) -> None:
         """Affiche l'aide."""
-        logger.info("\n" + "="*70)
+        logger.info("\n" + "=" * 70)
         logger.info("📖 AIDE - SERVEUR DE RECHERCHE VECTORIELLE")
-        logger.info("="*70)
-        logger.info("""
+        logger.info("=" * 70)
+        logger.info(
+            """
 Commandes disponibles:
 
   <votre recherche>    Effectue une recherche sémantique
@@ -249,8 +256,9 @@ Exemples de recherches:
   - "festival de musique électronique"
   - "conférence sur l'environnement"
   - "marché de Noël"
-        """)
-        logger.info("="*70)
+        """
+        )
+        logger.info("=" * 70)
 
 
 def main():
@@ -263,9 +271,10 @@ def main():
     # Configuration
     index_path = os.getenv("FAISS_INDEX_PATH", "data/faiss_index")
     model_id = os.getenv("EMBEDDINGS_MODEL")
+    device = os.getenv("EMBEDDINGS_DEVICE") or None
 
     # Créer et démarrer le serveur
-    server = VectorStoreServer(index_path, model_id)
+    server = VectorStoreServer(index_path, model_id, device)
     server.start()
 
     # Si le chargement a réussi, lancer le REPL

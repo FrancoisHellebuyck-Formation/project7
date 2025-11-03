@@ -1,6 +1,8 @@
-# OpenClassrooms Project 7 - Cultural Events Search API
+# OpenClassrooms Project 7 - Puls-Events
 
-API de recherche sémantique pour les événements culturels d'Occitanie, basée sur FastAPI et FAISS.
+Système de recherche sémantique et chatbot conversationnel pour les événements culturels d'Occitanie, combinant RAG (Retrieval Augmented Generation) et Mistral AI.
+
+> 📖 **Documentation complète** : Consultez [ARCHITECTURE.md](ARCHITECTURE.md) pour une vue détaillée de l'architecture et des flux de données.
 
 ## Démarrage rapide avec Docker
 
@@ -41,12 +43,14 @@ docker-compose up -d api
 
 ### Endpoints disponibles
 
-- `GET /` - Informations sur l'API
-- `GET /health` - Health check
-- `GET /stats` - Statistiques du vector store
-- `GET /search?q=query&k=5` - Recherche sémantique (GET)
-- `POST /search` - Recherche sémantique (POST)
-- `GET /docs` - Documentation Swagger UI interactive
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| `GET` | `/` | Informations sur l'API |
+| `GET` | `/health` | Health check |
+| `GET` | `/stats` | Statistiques du vector store |
+| `POST` | `/search` | Recherche sémantique |
+| `POST` | `/ask` | Question-réponse avec RAG + Mistral AI |
+| `GET` | `/docs` | Documentation Swagger UI interactive |
 
 ### Exemples de requêtes
 
@@ -57,13 +61,15 @@ curl http://localhost:8000/health
 # Statistiques
 curl http://localhost:8000/stats
 
-# Recherche avec GET
-curl "http://localhost:8000/search?q=concert+rock&k=5"
-
-# Recherche avec POST
+# Recherche sémantique
 curl -X POST http://localhost:8000/search \
   -H "Content-Type: application/json" \
-  -d '{"query": "exposition art moderne", "k": 3}'
+  -d '{"query": "concert de musique", "k": 5}'
+
+# Question avec RAG + Mistral AI
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Quels festivals de jazz en été ?", "k": 5}'
 ```
 
 ### Documentation interactive
@@ -87,29 +93,44 @@ uv sync
 ```bash
 make help              # Voir toutes les commandes
 make run-all           # Pipeline complet (agendas → events → chunks → embeddings)
-make run-api           # Démarrer l'API en mode développement
+make run-api           # Démarrer l'API REST
+make run-ui            # Démarrer l'interface Streamlit
+make run-chat          # Démarrer le chatbot CLI
 make docker-up         # Démarrer MongoDB
 ```
 
 ## Architecture
 
-### Pipeline de données
+> 📖 Consultez [ARCHITECTURE.md](ARCHITECTURE.md) pour la documentation complète incluant :
+> - Schémas détaillés des flux de données
+> - Architecture de déploiement
+> - Structure des modules
+> - Points d'extension futurs
 
-1. **Collecte des agendas** - Récupération depuis OpenAgenda API
-2. **Collecte des événements** - Récupération pour chaque agenda
-3. **Chunking** - Découpage des documents avec LangChain
-4. **Embeddings** - Génération avec multilingual-e5-large (1024D)
-5. **Indexation FAISS** - Création de l'index vectoriel
-6. **API FastAPI** - Exposition via REST API
+### Pipeline de données (résumé)
 
-### Technologies
+```
+OpenAgenda API → MongoDB → Chunking → Embeddings → FAISS Index
+                                                         ↓
+                                                    FastAPI
+                                                         ↓
+                                          ┌──────────────┼──────────┐
+                                          ▼              ▼          ▼
+                                     CLI Script    API Client   Streamlit UI
+```
 
-- **FastAPI** - Framework web moderne et rapide
-- **FAISS** - Vector store pour la recherche sémantique
-- **LangChain** - Framework pour le traitement de documents
-- **Transformers** - Modèle d'embeddings multilingual-e5-large
-- **MongoDB** - Base de données pour les événements bruts
-- **Docker** - Containerisation pour le déploiement
+### Technologies principales
+
+| Composant | Technologie | Usage |
+|-----------|-------------|-------|
+| **API** | FastAPI | REST API endpoints |
+| **Vector Store** | FAISS | Recherche sémantique |
+| **NLP** | LangChain | Document processing |
+| **Embeddings** | multilingual-e5-large | 1024D vectors |
+| **LLM** | Mistral AI | RAG responses |
+| **Database** | MongoDB | Raw events storage |
+| **UI** | Streamlit | Web interface |
+| **Deploy** | Docker | Containerization |
 
 ## Configuration
 
