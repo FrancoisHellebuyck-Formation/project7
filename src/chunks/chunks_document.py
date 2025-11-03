@@ -181,22 +181,43 @@ def create_text_splitter(
     )
 
 
+def get_chunk_parameters() -> tuple[int, int]:
+    """
+    Récupère les paramètres de chunking depuis les variables d'environnement.
+
+    Returns:
+        tuple[int, int]: (chunk_size, chunk_overlap)
+    """
+    load_dotenv()
+
+    chunk_size = int(os.getenv("CHUNK_SIZE", "500"))
+    chunk_overlap = int(os.getenv("CHUNK_OVERLAP", "100"))
+
+    return chunk_size, chunk_overlap
+
+
 def split_documents_into_chunks(
     documents: List[Document],
-    chunk_size: int = 1500,
-    chunk_overlap: int = 200
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None
 ) -> List[Document]:
     """
     Découpe une liste de documents en chunks plus petits.
 
     Args:
         documents: Liste de documents LangChain à découper
-        chunk_size: Taille maximale de chaque chunk en caractères
-        chunk_overlap: Nombre de caractères de chevauchement entre chunks
+        chunk_size: Taille maximale de chaque chunk en caractères (défaut: depuis .env ou 500)
+        chunk_overlap: Nombre de caractères de chevauchement entre chunks (défaut: depuis .env ou 100)
 
     Returns:
         list[Document]: Liste de chunks (documents découpés)
     """
+    # Récupérer les valeurs depuis .env si non fournies
+    if chunk_size is None or chunk_overlap is None:
+        default_size, default_overlap = get_chunk_parameters()
+        chunk_size = chunk_size or default_size
+        chunk_overlap = chunk_overlap or default_overlap
+
     text_splitter = create_text_splitter(chunk_size, chunk_overlap)
     chunks = text_splitter.split_documents(documents)
     return chunks
@@ -206,8 +227,8 @@ def process_events_to_chunks(
     events_collection: Collection,
     query: Optional[Dict[str, Any]] = None,
     limit: Optional[int] = None,
-    chunk_size: int = 1500,
-    chunk_overlap: int = 200,
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None,
     verbose: bool = False
 ) -> List[Document]:
     """
@@ -217,13 +238,22 @@ def process_events_to_chunks(
         events_collection: Collection MongoDB des événements
         query: Filtre de requête MongoDB optionnel
         limit: Nombre maximum de documents à traiter
-        chunk_size: Taille maximale de chaque chunk
-        chunk_overlap: Chevauchement entre chunks
+        chunk_size: Taille maximale de chaque chunk (défaut: depuis .env ou 500)
+        chunk_overlap: Chevauchement entre chunks (défaut: depuis .env ou 100)
         verbose: Si True, affiche des informations de progression
 
     Returns:
         list[Document]: Liste de tous les chunks créés
     """
+    # Récupérer les paramètres depuis .env si non fournis
+    if chunk_size is None or chunk_overlap is None:
+        default_size, default_overlap = get_chunk_parameters()
+        chunk_size = chunk_size or default_size
+        chunk_overlap = chunk_overlap or default_overlap
+
+    if verbose:
+        logger.info(f"Paramètres de chunking: size={chunk_size}, overlap={chunk_overlap}")
+
     # Charger les documents
     documents = load_documents_from_mongodb(events_collection, query, limit)
 
