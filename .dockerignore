@@ -1,0 +1,61 @@
+# Fichiers Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environnements virtuels
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation et notes
+*.md
+!README.md
+CLAUDE.md
+rapport/
+
+# Tests et CI/CD
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Données de développement
+data/corpus/
+
+# MongoDB (géré séparément)
+database/
+
+# Fichiers de configuration locaux
+.env.local
+.env.development
+
+# Logs
+*.log
+
+# Makefile (non nécessaire dans le container)
+Makefile
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml

@@ -693,3 +693,8 @@ mlflow.db
 mlflow.db.lock
 .mlflow/
 .mlflow_temp/
+# Local MongoDB data
+mongodb_data/
+CLAUDE.md
+.claude/
+data/faiss_index

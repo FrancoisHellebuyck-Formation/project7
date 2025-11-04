@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Base de données MongoDB
+  mongodb:
+    image: mongo:latest
+    container_name: my_mongodb
+    restart: always
+    ports:
+      - "27017:27017" # Mappe le port MongoDB par défaut de l'hôte au conteneur
+    volumes:
+      - mongodb_data:/data/db # Volume persistant pour les données MongoDB
+      # - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro # Exemple pour un script d'initialisation
+    environment:
+      # - MONGO_INITDB_ROOT_USERNAME=admin # Décommenter et définir pour un utilisateur root
+      # - MONGO_INITDB_ROOT_PASSWORD=password # Décommenter et définir pour un mot de passe root
+      - MONGO_INITDB_DATABASE=OA # Nom de la base de données par défaut
+
+  # API de recherche sémantique
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oc_project7_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Configuration du vector store
+      - FAISS_INDEX_PATH=/app/data/faiss_index
+      - EMBEDDINGS_MODEL=intfloat/multilingual-e5-large
+      - EMBEDDINGS_DEVICE=cpu
+      - KMP_DUPLICATE_LIB_OK=TRUE
+      # Configuration MongoDB (si nécessaire pour des évolutions futures)
+      - MONGODB_URI=mongodb://mongodb:27017/
+      - MONGODB_DB_NAME=OA
+    volumes:
+      # Monter le vector store depuis l'hôte pour faciliter les mises à jour
+      - ./data/faiss_index:/app/data/faiss_index:ro
+    networks:
+      - project7_network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  project7_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local

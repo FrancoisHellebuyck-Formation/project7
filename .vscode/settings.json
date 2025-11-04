@@ -1,0 +1,44 @@
+{
+    "python.defaultInterpreterPath": "./venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    // Linting avec Poetry
+    "python.linting.enabled": true,
+    "python.linting.flake8Enabled": true,
+    "python.linting.lintOnSave": true,
+    "python.linting.flake8Path": "./venv/bin/flake8",
+    // Configuration spécifique pour Jupyter
+    "jupyter.linting.enabled": true,
+    // Formatting (si vous utilisez Black)
+    "python.formatting.provider": "black",
+    "python.formatting.blackPath": "./venv/bin/black",
+    "editor.formatOnSave": true,
+    // Désactiver autres linters
+    "python.linting.pylintEnabled": false,
+    "python.linting.pycodestyleEnabled": false,
+    "makefile.configureOnOpen": false,
+    "python.linting.flake8Args": [
+        "--max-line-length=88",
+        "--extend-ignore=E203,W503,E402"
+    ],
+    "editor.rulers": [
+        88
+    ],
+    // === ACTIONS SUR SAUVEGARDE NOTEBOOKS ===
+    "notebook.codeActionsOnSave": {
+        "source.organizeImports": true, // Organise les imports
+        "source.fixAll": false, // Désactiver les fix auto (optionnel)
+    },
+    // === ACTIONS SUR SAUVEGARDE FICHIERS PYTHON ===
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll.flake8": "explicit"
+        },
+        "editor.formatOnSave": true // Format avec Black
+    },
+    // === CONFIGURATION ISORT (pour organiser imports) ===
+    "python.sortImports.args": [
+        "--profile=black", // Compatible avec Black
+        "--line-length=88"
+    ]
+}
