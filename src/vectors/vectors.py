@@ -194,14 +194,16 @@ def delete_vector_store(
         path: Chemin du répertoire contenant le vector store
         verbose: Si True, affiche des informations de progression
 
-    Raises:
-        FileNotFoundError: Si le répertoire n'existe pas
+    Note:
+        Si le répertoire n'existe pas, affiche un warning mais ne lève pas d'exception
     """
     import shutil
 
     path_obj = Path(path)
     if not path_obj.exists():
-        raise FileNotFoundError(f"Le répertoire {path} n'existe pas")
+        if verbose:
+            logger.warning(f"⚠️  Le répertoire {path} n'existe pas (aucune suppression nécessaire)")
+        return
 
     if verbose:
         logger.info(f"Suppression du vector store: {path}")
