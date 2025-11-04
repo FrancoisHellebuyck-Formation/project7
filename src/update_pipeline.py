@@ -16,12 +16,12 @@ import os
 import sys
 import logging
 import subprocess
-from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 # Configuration du logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -92,8 +92,12 @@ def run_command(command: list, description: str) -> bool:
     logger.info("=" * 70)
 
     try:
-        result = subprocess.run(
-            command, check=True, capture_output=False, text=True, env=os.environ.copy()
+        subprocess.run(
+            command,
+            check=True,
+            capture_output=False,
+            text=True,
+            env=os.environ.copy()
         )
         logger.info(f"✅ {description} - TERMINÉ")
         return True
@@ -133,17 +137,20 @@ def main():
         )
         sys.exit(1)
 
-    # Définir les variables d'environnement pour tous les scripts suivants
+    # Définir les variables d'environnement
     os.environ["OA_AGENDAS_UPDATED_AT_GTE"] = last_execution_date
-    os.environ["OA_EVENTS_DATE_FILTER"] = last_execution_date  # Filtre pour les événements
+    os.environ["OA_EVENTS_DATE_FILTER"] = last_execution_date
     logger.info(
-        f"✓ Date de mise à jour minimale définie: {last_execution_date}"
+        f"✓ Date de mise à jour minimale définie: "
+        f"{last_execution_date}"
     )
     logger.info(
-        "  → Les agendas modifiés depuis cette date seront récupérés"
+        "  → Les agendas modifiés depuis cette date seront "
+        "récupérés"
     )
     logger.info(
-        "  → Les événements créés ou mis à jour depuis cette date seront inclus"
+        "  → Les événements créés ou mis à jour depuis cette date "
+        "seront inclus"
     )
 
     # Étape 2 : Backup et vidage des collections agendas/events

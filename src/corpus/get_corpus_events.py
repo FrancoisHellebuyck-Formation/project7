@@ -13,9 +13,10 @@ REQUEST_AGENDA_REGION = os.getenv("OA_REGION")  # Région ciblée
 OA_EVENTS_PATH_SUFFIX = os.getenv(
     "OA_EVENTS_PATH_SUFFIX", "/events"
 )  # Suffixe de chemin pour les événements
-OA_PAGE_SIZE = int(os.getenv("OA_PAGE_SIZE", "100"))  # Taille de page par défaut
+OA_PAGE_SIZE = int(os.getenv("OA_PAGE_SIZE", "100"))
 OA_REGION = os.getenv("OA_REGION")  # Région ciblée
-OA_EVENTS_DATE_FILTER = os.getenv("OA_EVENTS_DATE_FILTER")  # Filtre de date pour les événements (mode UPDATE)
+# Filtre de date pour les événements (mode UPDATE)
+OA_EVENTS_DATE_FILTER = os.getenv("OA_EVENTS_DATE_FILTER")
 # --- Connexion à MongoDB ---
 # Assurez-vous que votre conteneur Docker MongoDB est en cours d'exécution
 client = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017/"))
@@ -31,7 +32,7 @@ events_collection = db[
 
 # --- Configuration du logging ---
 logging.basicConfig(
-    level=logging.INFO,  # Niveau de logging par défaut (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+    level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
@@ -48,7 +49,8 @@ def should_include_event(event: dict, date_filter: str = None) -> bool:
 
     Args:
         event: Événement à vérifier
-        date_filter: Date minimale au format ISO 8601 (ex: "2025-01-15T10:30:00.000Z")
+        date_filter: Date minimale au format ISO 8601
+                     (ex: "2025-01-15T10:30:00.000Z")
 
     Returns:
         bool: True si l'événement doit être inclus, False sinon
@@ -59,13 +61,17 @@ def should_include_event(event: dict, date_filter: str = None) -> bool:
 
     try:
         # Parser la date de filtre
-        filter_date = datetime.fromisoformat(date_filter.replace('Z', '+00:00'))
+        filter_date = datetime.fromisoformat(
+            date_filter.replace('Z', '+00:00')
+        )
 
         # Vérifier createdAt
         created_at = event.get("createdAt")
         if created_at:
             try:
-                created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                created_date = datetime.fromisoformat(
+                    created_at.replace('Z', '+00:00')
+                )
                 if created_date >= filter_date:
                     return True
             except (ValueError, AttributeError):
@@ -75,7 +81,9 @@ def should_include_event(event: dict, date_filter: str = None) -> bool:
         updated_at = event.get("updatedAt")
         if updated_at:
             try:
-                updated_date = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                updated_date = datetime.fromisoformat(
+                    updated_at.replace('Z', '+00:00')
+                )
                 if updated_date >= filter_date:
                     return True
             except (ValueError, AttributeError):
@@ -84,8 +92,12 @@ def should_include_event(event: dict, date_filter: str = None) -> bool:
         return False
 
     except Exception as e:
-        logger.warning(f"Erreur lors du filtrage de l'événement {event.get('uid')}: {e}")
+        logger.warning(
+            f"Erreur lors du filtrage de l'événement "
+            f"{event.get('uid')}: {e}"
+        )
         return True  # En cas d'erreur, inclure l'événement par sécurité
+
 
 # Paramètres de la requête pour cibler les events
 fields_events = [
@@ -155,7 +167,8 @@ nb_events_filtered_out = 0  # Compteur pour les événements filtrés
 try:
     if not OA_BASE_URL:
         logger.error(
-            "OA_BASE_URL n'est pas défini dans les variables d'environnement. Impossible de récupérer les événements."
+            "OA_BASE_URL n'est pas défini dans les variables "
+            "d'environnement. Impossible de récupérer les événements."
         )
         exit()
 
@@ -164,21 +177,28 @@ try:
         logger.info("=" * 70)
         logger.info("MODE FILTRAGE ACTIVÉ")
         logger.info(f"Date minimale: {OA_EVENTS_DATE_FILTER}")
-        logger.info("Seuls les événements créés ou mis à jour après cette date seront inclus")
+        logger.info(
+            "Seuls les événements créés ou mis à jour après cette "
+            "date seront inclus"
+        )
         logger.info("=" * 70)
 
     # 1. Récupérer tous les agendas de la base de données
     logger.info(
-        "Récupération des agendas depuis MongoDB pour trouver leurs événements..."
+        "Récupération des agendas depuis MongoDB pour trouver "
+        "leurs événements..."
     )
     # On ne récupère que l'UID de l'agenda
     agendas_cursor = agendas_collection.find({}, {"uid": 1, "_id": 0})
     agenda_uids = [agenda["uid"] for agenda in agendas_cursor]
-    logger.info(f"{len(agenda_uids)} agendas trouvés dans la base de données.")
+    logger.info(
+        f"{len(agenda_uids)} agendas trouvés dans la base de données."
+    )
 
     if not agenda_uids:
         logger.warning(
-            "Aucun agenda trouvé dans la base de données. Veuillez exécuter 'get_corpus_agendas.py' d'abord."
+            "Aucun agenda trouvé dans la base de données. "
+            "Veuillez exécuter 'get_corpus_agendas.py' d'abord."
         )
         exit()
 
@@ -186,31 +206,36 @@ try:
     for agenda_uid in agenda_uids:
         logger.info(f"--- Traitement de l'agenda UID : {agenda_uid} ---")
 
-        # Construction de l'endpoint spécifique pour les événements de cet agenda
+        # Construction de l'endpoint pour les événements de cet agenda
         agenda_events_endpoint = (
             f"{OA_BASE_URL}/agendas/{agenda_uid}{OA_EVENTS_PATH_SUFFIX}"
         )
 
-        # Réinitialisation des paramètres pour chaque agenda pour gérer la pagination indépendamment
+        # Réinitialisation des paramètres pour pagination indépendante
         current_params = parametres_events.copy()
-        current_params["key"] = (
-            API_KEY  # S'assurer que la clé API est toujours présente
-        )
-        current_params["size"] = OA_PAGE_SIZE  # Utiliser la taille de page définie
+        current_params["key"] = API_KEY
+        current_params["size"] = OA_PAGE_SIZE
 
         agenda_events_count = 0
 
-        while True:  # Boucle de pagination pour les événements de l'agenda courant
+        while True:  # Boucle de pagination
             try:
                 # 1. Construction de l'URL et envoi de la requête GET
-                print_params = {k: v for k, v in current_params.items() if k != "key"}
+                print_params = {
+                    k: v for k, v in current_params.items()
+                    if k != "key"
+                }
                 logger.debug(
-                    f"Requête événements pour {agenda_uid} avec les paramètres : {print_params}"
+                    f"Requête événements pour {agenda_uid} "
+                    f"avec les paramètres : {print_params}"
                 )
-                reponse = requests.get(agenda_events_endpoint, params=current_params)
+                reponse = requests.get(
+                    agenda_events_endpoint,
+                    params=current_params
+                )
 
                 # 2. Vérification du statut HTTP
-                reponse.raise_for_status()  # Lève une exception pour les codes 4xx/5xx
+                reponse.raise_for_status()
 
                 # 3. Extraction des données JSON
                 data_events = reponse.json()
@@ -218,7 +243,7 @@ try:
                 events_received = data_events.get("events", [])
 
                 for event in events_received:
-                    # Ajout de l'UID de l'agenda à chaque événement pour faciliter les requêtes futures
+                    # Ajout de l'UID de l'agenda à chaque événement
                     event["agendaUid"] = agenda_uid
 
                     # Appliquer le filtre de date si configuré
@@ -229,11 +254,13 @@ try:
 
                 # 4. Insertion des données dans MongoDB
                 if events_to_insert:
-                    # Utilisation de bulk_write pour de meilleures performances
-                    # La clé unique pour un événement est son UID ET l'UID de l'agenda parent
+                    # Utilisation de bulk_write pour performances
                     operations = [
                         UpdateOne(
-                            {"uid": event["uid"], "agendaUid": event["agendaUid"]},
+                            {
+                                "uid": event["uid"],
+                                "agendaUid": event["agendaUid"]
+                            },
                             {"$set": event},
                             upsert=True,
                         )
@@ -245,7 +272,11 @@ try:
                     nb_events_updated += result.modified_count
                     agenda_events_count += len(events_to_insert)
                     logger.info(
-                        f"---> {len(events_to_insert)} événements traités pour l'agenda {agenda_uid}: {result.upserted_count} insérés, {result.modified_count} modifiés dans '{events_collection.name}'."
+                        f"---> {len(events_to_insert)} événements traités "
+                        f"pour l'agenda {agenda_uid}: "
+                        f"{result.upserted_count} insérés, "
+                        f"{result.modified_count} modifiés dans "
+                        f"'{events_collection.name}'."
                     )
 
                 # Gestion de la pagination
@@ -253,22 +284,27 @@ try:
                     current_params["after[]"] = data_events["after"]
                 else:
                     logger.info(
-                        f"Fin de la récupération des événements pour l'agenda {agenda_uid}. Total: {agenda_events_count} événements."
+                        f"Fin de la récupération des événements pour "
+                        f"l'agenda {agenda_uid}. "
+                        f"Total: {agenda_events_count} événements."
                     )
-                    break  # Sortir de la boucle de pagination pour cet agenda
+                    break
 
             except requests.exceptions.RequestException as req_err:
                 logger.error(
-                    f"Erreur de requête pour l'agenda {agenda_uid}: {req_err}",
+                    f"Erreur de requête pour l'agenda {agenda_uid}: "
+                    f"{req_err}",
                     exc_info=True,
                 )
-                break  # Passer à l'agenda suivant en cas d'erreur de requête
+                break
             except Exception as err:
                 logger.error(
-                    f"Une erreur inattendue est survenue lors de la récupération des événements pour l'agenda {agenda_uid}: {err}",
+                    f"Une erreur inattendue est survenue lors de la "
+                    f"récupération des événements pour l'agenda "
+                    f"{agenda_uid}: {err}",
                     exc_info=True,
                 )
-                break  # Passer à l'agenda suivant en cas d'erreur inattendue
+                break
 
     logger.info("--------------------------------------------------")
     logger.info("Fin de la récupération de tous les événements.")
@@ -277,8 +313,18 @@ try:
     logger.info(f"Nombre d'événements mis à jour : {nb_events_updated}")
 
     if OA_EVENTS_DATE_FILTER:
-        logger.info(f"Nombre d'événements filtrés (date < {OA_EVENTS_DATE_FILTER}): {nb_events_filtered_out}")
-        logger.info(f"Taux de filtrage: {nb_events_filtered_out / (nb_events_total + nb_events_filtered_out) * 100:.1f}%" if (nb_events_total + nb_events_filtered_out) > 0 else "N/A")
+        logger.info(
+            f"Nombre d'événements filtrés "
+            f"(date < {OA_EVENTS_DATE_FILTER}): {nb_events_filtered_out}"
+        )
+        if (nb_events_total + nb_events_filtered_out) > 0:
+            rate = (
+                nb_events_filtered_out /
+                (nb_events_total + nb_events_filtered_out) * 100
+            )
+            logger.info(f"Taux de filtrage: {rate:.1f}%")
+        else:
+            logger.info("Taux de filtrage: N/A")
 
     logger.info("--------------------------------------------------")
 

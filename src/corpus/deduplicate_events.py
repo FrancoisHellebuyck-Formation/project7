@@ -7,8 +7,7 @@ En cas de doublons, il conserve le document le plus récent (basé sur 'updatedA
 
 import os
 import logging
-from typing import Dict, Any
-from collections import defaultdict
+from typing import Dict
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -142,11 +141,17 @@ def deduplicate_events(collection, dry_run: bool = False) -> Dict[str, int]:
         # Garder le premier (le plus récent), supprimer les autres
         for doc_id, updated_at in id_date_pairs[1:]:
             ids_to_delete.append(doc_id)
-            logger.debug(f"  - uid={uid}, _id={doc_id}, updatedAt={updated_at} -> À SUPPRIMER")
+            logger.debug(
+                f"  - uid={uid}, _id={doc_id}, "
+                f"updatedAt={updated_at} -> À SUPPRIMER"
+            )
 
         # Log du document conservé
         kept_id, kept_date = id_date_pairs[0]
-        logger.debug(f"  ✓ uid={uid}, _id={kept_id}, updatedAt={kept_date} -> CONSERVÉ")
+        logger.debug(
+            f"  ✓ uid={uid}, _id={kept_id}, "
+            f"updatedAt={kept_date} -> CONSERVÉ"
+        )
 
     stats["documents_to_delete"] = len(ids_to_delete)
 
@@ -193,10 +198,16 @@ def main():
         logger.info("=" * 70)
         logger.info("RÉSUMÉ DU DÉDOUBLONNEMENT")
         logger.info("=" * 70)
-        logger.info(f"Events avant dédoublonnement: {stats['total_events']}")
+        logger.info(
+            f"Events avant dédoublonnement: {stats['total_events']}"
+        )
         logger.info(f"UID en double: {stats['duplicate_uids']}")
-        logger.info(f"Documents en double: {stats['duplicate_documents']}")
-        logger.info(f"Documents supprimés: {stats['documents_deleted']}")
+        logger.info(
+            f"Documents en double: {stats['duplicate_documents']}"
+        )
+        logger.info(
+            f"Documents supprimés: {stats['documents_deleted']}"
+        )
         logger.info(f"Events après dédoublonnement: {stats['total_events'] - stats['documents_deleted']}")
         logger.info("=" * 70)
 

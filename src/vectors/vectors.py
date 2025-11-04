@@ -5,7 +5,7 @@ Ce module gère la création, sauvegarde, chargement et recherche dans l'index F
 Responsabilité unique : opérations sur les vector stores.
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 from pathlib import Path
 import logging
 
@@ -15,16 +15,13 @@ from langchain_core.embeddings import Embeddings
 
 # Configuration du logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 
 def create_vector_store(
-    documents: List[Document],
-    embeddings: Embeddings,
-    verbose: bool = False
+    documents: List[Document], embeddings: Embeddings, verbose: bool = False
 ) -> FAISS:
     """
     Crée un vector store FAISS à partir des documents.
@@ -48,10 +45,7 @@ def create_vector_store(
         logger.info("Génération des embeddings (cela peut prendre du temps)...")
 
     # Créer le vector store FAISS
-    vector_store = FAISS.from_documents(
-        documents=documents,
-        embedding=embeddings
-    )
+    vector_store = FAISS.from_documents(documents=documents, embedding=embeddings)
 
     if verbose:
         logger.info(f"✓ Vector store créé avec {len(documents)} vecteurs")
@@ -60,9 +54,7 @@ def create_vector_store(
 
 
 def save_vector_store(
-    vector_store: FAISS,
-    save_path: str,
-    verbose: bool = False
+    vector_store: FAISS, save_path: str, verbose: bool = False
 ) -> None:
     """
     Sauvegarde le vector store FAISS sur le disque.
@@ -85,9 +77,7 @@ def save_vector_store(
 
 
 def load_vector_store(
-    load_path: str,
-    embeddings: Embeddings,
-    verbose: bool = False
+    load_path: str, embeddings: Embeddings, verbose: bool = False
 ) -> FAISS:
     """
     Charge un vector store FAISS depuis le disque.
@@ -110,9 +100,7 @@ def load_vector_store(
         logger.info(f"Chargement du vector store depuis: {load_path}")
 
     vector_store = FAISS.load_local(
-        load_path,
-        embeddings,
-        allow_dangerous_deserialization=True
+        load_path, embeddings, allow_dangerous_deserialization=True
     )
 
     if verbose:
@@ -122,10 +110,7 @@ def load_vector_store(
 
 
 def search_similar_documents(
-    vector_store: FAISS,
-    query: str,
-    k: int = 5,
-    verbose: bool = False
+    vector_store: FAISS, query: str, k: int = 5, verbose: bool = False
 ) -> List[Tuple[Document, float]]:
     """
     Recherche les documents les plus similaires à une requête.
@@ -147,15 +132,15 @@ def search_similar_documents(
     if verbose:
         logger.info(f"✓ {len(results)} résultats trouvés")
         for i, (doc, score) in enumerate(results, 1):
-            logger.info(f"  {i}. Score: {score:.4f} | {doc.metadata.get('title', 'Sans titre')[:60]}")
+            logger.info(
+                f"  {i}. Score: {score:.4f} | {doc.metadata.get('title', 'Sans titre')[:60]}"
+            )
 
     return results
 
 
 def add_documents_to_vector_store(
-    vector_store: FAISS,
-    documents: List[Document],
-    verbose: bool = False
+    vector_store: FAISS, documents: List[Document], verbose: bool = False
 ) -> FAISS:
     """
     Ajoute de nouveaux documents à un vector store existant.
@@ -183,10 +168,7 @@ def add_documents_to_vector_store(
     return vector_store
 
 
-def delete_vector_store(
-    path: str,
-    verbose: bool = False
-) -> None:
+def delete_vector_store(path: str, verbose: bool = False) -> None:
     """
     Supprime un vector store du disque.
 
@@ -202,7 +184,9 @@ def delete_vector_store(
     path_obj = Path(path)
     if not path_obj.exists():
         if verbose:
-            logger.warning(f"⚠️  Le répertoire {path} n'existe pas (aucune suppression nécessaire)")
+            logger.warning(
+                f"⚠️  Le répertoire {path} n'existe pas (aucune suppression nécessaire)"
+            )
         return
 
     if verbose:
@@ -214,10 +198,7 @@ def delete_vector_store(
         logger.info("✓ Vector store supprimé avec succès")
 
 
-def get_vector_store_stats(
-    vector_store: FAISS,
-    verbose: bool = False
-) -> dict:
+def get_vector_store_stats(vector_store: FAISS, verbose: bool = False) -> dict:
     """
     Récupère les statistiques d'un vector store.
 
@@ -234,7 +215,7 @@ def get_vector_store_stats(
     }
 
     if verbose:
-        logger.info(f"Statistiques du vector store:")
+        logger.info("Statistiques du vector store:")
         logger.info(f"  - Nombre de vecteurs: {stats['num_vectors']}")
         logger.info(f"  - Dimension: {stats['dimension']}")
 
@@ -251,9 +232,9 @@ def main():
 
     load_dotenv()
 
-    logger.info("="*70)
+    logger.info("=" * 70)
     logger.info("TEST DU MODULE VECTORS")
-    logger.info("="*70)
+    logger.info("=" * 70)
 
     # Configuration
     index_path = os.getenv("FAISS_INDEX_PATH", "data/faiss_index")
@@ -268,6 +249,7 @@ def main():
         # Charger le modèle d'embeddings
         logger.info("\n1. Chargement du modèle d'embeddings...")
         import sys
+
         sys.path.append(str(Path(__file__).parent.parent))
         from embeddings import get_embeddings_model
 
@@ -279,7 +261,7 @@ def main():
 
         # Afficher les statistiques
         logger.info("\n3. Statistiques du vector store:")
-        stats = get_vector_store_stats(vector_store, verbose=True)
+        get_vector_store_stats(vector_store, verbose=True)
 
         # Test de recherche
         test_query = os.getenv("TEST_QUERY", "concert de musique")
@@ -293,9 +275,9 @@ def main():
             logger.info(f"   Lieu: {doc.metadata.get('city', 'N/A')}")
             logger.info(f"   Extrait: {doc.page_content[:150]}...")
 
-        logger.info("\n" + "="*70)
+        logger.info("\n" + "=" * 70)
         logger.info("✓ TEST TERMINÉ AVEC SUCCÈS")
-        logger.info("="*70)
+        logger.info("=" * 70)
 
     except Exception as e:
         logger.error(f"❌ Erreur lors du test: {e}", exc_info=True)

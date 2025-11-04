@@ -90,24 +90,48 @@ def show_last_update(verbose: bool = True) -> dict:
             logger.info("📊 DERNIÈRE EXÉCUTION DU PIPELINE")
             logger.info("=" * 70)
             logger.info("")
-            logger.info(f"🗓️  Date d'exécution:")
-            logger.info(f"   {format_date(last_execution.get('pipeline_run_date'))}")
+            logger.info("🗓️  Date d'exécution:")
+            logger.info(
+                f"   {format_date(last_execution.get('pipeline_run_date'))}"
+            )
             logger.info("")
-            logger.info(f"📅 Paramètres de sélection:")
-            logger.info(f"   Date de début: {last_execution.get('agendas_updated_at_gte', 'N/A')}")
-            logger.info(f"   Mois recherchés: {last_execution.get('months_back', 'N/A')}")
-            logger.info(f"   Région: {last_execution.get('region', 'N/A')}")
+            logger.info("📅 Paramètres de sélection:")
+            logger.info(
+                f"   Date de début: "
+                f"{last_execution.get('agendas_updated_at_gte', 'N/A')}"
+            )
+            logger.info(
+                f"   Mois recherchés: "
+                f"{last_execution.get('months_back', 'N/A')}"
+            )
+            logger.info(
+                f"   Région: {last_execution.get('region', 'N/A')}"
+            )
             logger.info("")
-            logger.info(f"📊 Données traitées:")
-            logger.info(f"   Événements: {last_execution.get('total_events_processed', 0):,}")
-            logger.info(f"   Chunks créés: {last_execution.get('total_chunks_created', 0):,}")
+            logger.info("📊 Données traitées:")
+            logger.info(
+                f"   Événements: "
+                f"{last_execution.get('total_events_processed', 0):,}"
+            )
+            logger.info(
+                f"   Chunks créés: "
+                f"{last_execution.get('total_chunks_created', 0):,}"
+            )
             logger.info("")
-            logger.info(f"🤖 Configuration du modèle:")
-            logger.info(f"   Modèle: {last_execution.get('embeddings_model', 'N/A')}")
-            logger.info(f"   Chunk size: {last_execution.get('chunk_size', 'N/A')}")
-            logger.info(f"   Chunk overlap: {last_execution.get('chunk_overlap', 'N/A')}")
+            logger.info("🤖 Configuration du modèle:")
+            logger.info(
+                f"   Modèle: "
+                f"{last_execution.get('embeddings_model', 'N/A')}"
+            )
+            logger.info(
+                f"   Chunk size: {last_execution.get('chunk_size', 'N/A')}"
+            )
+            logger.info(
+                f"   Chunk overlap: "
+                f"{last_execution.get('chunk_overlap', 'N/A')}"
+            )
             logger.info("")
-            logger.info(f"📈 Historique:")
+            logger.info("📈 Historique:")
             logger.info(f"   Total d'exécutions: {total_executions}")
             logger.info("=" * 70)
 
@@ -144,11 +168,13 @@ def show_execution_history(limit: int = 5, verbose: bool = True) -> list:
         last_update_collection = db["last_update"]
 
         # Récupérer les dernières exécutions
-        executions = list(last_update_collection.find(
-            {},
-            sort=[("pipeline_run_date", -1)],
-            limit=limit
-        ))
+        executions = list(
+            last_update_collection.find(
+                {},
+                sort=[("pipeline_run_date", -1)],
+                limit=limit
+            )
+        )
 
         if not executions:
             if verbose:

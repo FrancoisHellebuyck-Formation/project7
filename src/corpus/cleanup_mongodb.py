@@ -283,7 +283,7 @@ def backup_and_clear_for_update(verbose: bool = True) -> dict:
                         stats[stats_key]["count"] = count
 
                         if verbose:
-                            logger.info(f"   ✅ Backup créé")
+                            logger.info("   ✅ Backup créé")
 
                         # La collection originale n'existe plus (renommée)
                         # Elle sera recréée automatiquement lors de l'insertion
@@ -291,13 +291,21 @@ def backup_and_clear_for_update(verbose: bool = True) -> dict:
                         stats[stats_key]["cleared"] = True
 
                         if verbose:
-                            logger.info(f"   ✅ Collection vidée (sera recréée)")
+                            logger.info(
+                                "   ✅ Collection vidée (sera recréée)"
+                            )
                 else:
                     if verbose:
-                        logger.info(f"\nℹ️  Collection '{collection_name}' vide - aucun backup nécessaire")
+                        logger.info(
+                            f"\nℹ️  Collection '{collection_name}' vide - "
+                            "aucun backup nécessaire"
+                        )
             else:
                 if verbose:
-                    logger.info(f"\nℹ️  Collection '{collection_name}' n'existe pas - sera créée")
+                    logger.info(
+                        f"\nℹ️  Collection '{collection_name}' n'existe pas - "
+                        "sera créée"
+                    )
 
         if verbose:
             logger.info("\n" + "=" * 70)
