@@ -74,12 +74,6 @@ run-chat: ## Lance le chatbot Mistral CLI avec RAG
 	@echo "$(YELLOW)   Assurez-vous que l'API RAG est démarrée (make run-api)$(NC)"
 	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/chat/mistral.py
 
-run-ui: ## Lance l'interface Streamlit du chatbot
-	@echo "$(GREEN)🎨 Démarrage de l'interface Streamlit...$(NC)"
-	@echo "$(YELLOW)   Assurez-vous que l'API RAG est démarrée (make run-api)$(NC)"
-	@echo "$(YELLOW)   Interface disponible sur http://localhost:8501$(NC)"
-	$(UV) run streamlit run $(SRC_DIR)/ui/chatbot.py
-
 cleanup-mongodb: ## Archive les collections MongoDB existantes (backup avec date)
 	@echo "$(YELLOW)🗄️  Archivage des collections MongoDB...$(NC)"
 	$(UV) run $(PYTHON) $(SRC_DIR)/corpus/cleanup_mongodb.py
