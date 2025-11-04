@@ -106,9 +106,15 @@ format: ## Formate le code (à implémenter avec black)
 	@echo "$(YELLOW)✨ Formatage du code...$(NC)"
 	@echo "$(RED)⚠️  Black non configuré. Ajoutez-le au pyproject.toml$(NC)"
 
-test: ## Lance les tests (à implémenter)
-	@echo "$(YELLOW)🧪 Lancement des tests...$(NC)"
-	@echo "$(RED)⚠️  Tests non encore implémentés$(NC)"
+test: ## Lance les tests unitaires avec pytest
+	@echo "$(YELLOW)🧪 Lancement des tests unitaires...$(NC)"
+	$(UV) run pytest tests/ -v
+	@echo "$(GREEN)✓ Tests terminés$(NC)"
+
+test-cov: ## Lance les tests avec rapport de couverture
+	@echo "$(YELLOW)🧪 Lancement des tests avec couverture...$(NC)"
+	$(UV) run pytest tests/ -v --cov=src --cov-report=term-missing
+	@echo "$(GREEN)✓ Tests et couverture terminés$(NC)"
 
 docker-up: ## Démarre MongoDB avec Docker Compose
 	@echo "$(GREEN)🐳 Démarrage de MongoDB...$(NC)"
