@@ -194,10 +194,14 @@ def show_execution_history(limit: int = 5, verbose: bool = True) -> list:
                 logger.info(f"Exécution #{i}")
                 logger.info(f"{'─' * 70}")
                 logger.info(f"Date: {format_date(execution.get('pipeline_run_date'))}")
-                logger.info(f"Événements: {execution.get('total_events_processed', 0):,} | "
-                           f"Chunks: {execution.get('total_chunks_created', 0):,}")
-                logger.info(f"Période: {execution.get('months_back', 'N/A')} mois | "
-                           f"Région: {execution.get('region', 'N/A')}")
+                logger.info(
+                    f"Événements: {execution.get('total_events_processed', 0):,} | "
+                    f"Chunks: {execution.get('total_chunks_created', 0):,}"
+                )
+                logger.info(
+                    f"Période: {execution.get('months_back', 'N/A')} mois | "
+                    f"Région: {execution.get('region', 'N/A')}"
+                )
                 logger.info("")
 
             logger.info("=" * 70)

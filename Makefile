@@ -99,7 +99,7 @@ run-all: cleanup-mongodb run-agendas run-events deduplicate-events run-chunks ru
 
 lint: ## Vérifie le code avec flake8
 	@echo "$(YELLOW)🔍 Vérification du code avec flake8...$(NC)"
-	$(UV) run flake8 $(SRC_DIR) --max-line-length=88 --extend-ignore=E203,W503
+	$(UV) run flake8 $(SRC_DIR)
 	@echo "$(GREEN)✓ Code vérifié$(NC)"
 
 format: ## Formate le code (à implémenter avec black)
