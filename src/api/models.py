@@ -71,3 +71,11 @@ class HealthResponse(BaseModel):
     vector_store_loaded: bool = Field(..., description="Indique si le vector store est chargé")
     embeddings_model_loaded: bool = Field(..., description="Indique si le modèle d'embeddings est chargé")
     mistral_client_loaded: bool = Field(..., description="Indique si le client Mistral AI est chargé")
+
+
+class RebuildResponse(BaseModel):
+    """Modèle pour la réponse du rebuild de l'index FAISS."""
+    status: str = Field(..., description="Statut de l'opération (success, error, running)")
+    message: str = Field(..., description="Message descriptif de l'opération")
+    last_update_date: Optional[str] = Field(None, description="Date de dernière mise à jour utilisée")
+    details: Optional[dict] = Field(None, description="Détails supplémentaires de l'exécution")

@@ -7,9 +7,11 @@ en utilisant le vector store FAISS pré-calculé.
 
 import logging
 import os
+import asyncio
+from datetime import datetime
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from mistralai import Mistral, UserMessage, SystemMessage
 
@@ -23,6 +25,7 @@ from api.models import (
     AskResponse,
     StatsResponse,
     HealthResponse,
+    RebuildResponse,
 )
 
 # Configuration du logging
@@ -75,6 +78,15 @@ vector_store = None
 embeddings_model = None
 mistral_client = None
 default_system_prompt = None
+
+# Variables pour suivre l'état du rebuild
+rebuild_in_progress = False
+rebuild_status = {
+    "status": "idle",
+    "message": "Aucun rebuild en cours",
+    "started_at": None,
+    "last_update_date": None
+}
 
 
 def load_system_prompt(file_path: str) -> str:
@@ -173,6 +185,8 @@ async def root():
             "ask": "/ask",
             "stats": "/stats",
             "health": "/health",
+            "rebuild": "/rebuild",
+            "rebuild_status": "/rebuild/status",
             "docs": "/docs"
         }
     }
@@ -378,6 +392,169 @@ Sois précis, concis et utile."""
     except Exception as e:
         logger.error(f"Erreur lors du traitement de la question: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def run_rebuild_pipeline():
+    """
+    Exécute le pipeline de mise à jour incrémentale en arrière-plan.
+
+    Cette fonction lance le script update_pipeline.py qui effectue:
+    1. Récupération de la date de dernière exécution
+    2. Backup et vidage des collections MongoDB
+    3. Récupération des agendas mis à jour
+    4. Récupération des événements
+    5. Dédoublonnement
+    6. Chunking et génération des embeddings
+    7. Mise à jour de l'index FAISS
+    """
+    global rebuild_in_progress
+
+    try:
+        rebuild_status["status"] = "running"
+        rebuild_status["message"] = "Pipeline de mise à jour en cours..."
+        rebuild_status["started_at"] = datetime.now().isoformat()
+
+        logger.info("=" * 70)
+        logger.info("🔄 DÉMARRAGE DU REBUILD DE L'INDEX FAISS")
+        logger.info("=" * 70)
+
+        # Récupérer la date de dernière mise à jour
+        from pymongo import MongoClient
+        mongodb_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+        db_name = os.getenv("MONGODB_DB_NAME", "OA")
+
+        client = None
+        last_update_date = None
+        try:
+            client = MongoClient(mongodb_uri)
+            db = client[db_name]
+            last_update_collection = db["last_update"]
+
+            last_execution = last_update_collection.find_one(
+                {}, sort=[("pipeline_run_date", -1)]
+            )
+
+            if last_execution and "pipeline_run_date" in last_execution:
+                run_date = last_execution["pipeline_run_date"]
+                if isinstance(run_date, datetime):
+                    last_update_date = run_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+                else:
+                    last_update_date = str(run_date)
+
+                rebuild_status["last_update_date"] = last_update_date
+                logger.info(f"✓ Date de dernière exécution: {last_update_date}")
+        finally:
+            if client:
+                client.close()
+
+        # Construire le chemin vers le script update_pipeline.py
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        script_path = os.path.join(project_root, "src", "update_pipeline.py")
+
+        # Exécuter le pipeline de mise à jour
+        logger.info(f"Exécution du script: {script_path}")
+        process = await asyncio.create_subprocess_exec(
+            "uv", "run", "python", script_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=project_root
+        )
+
+        stdout, stderr = await process.communicate()
+
+        if process.returncode == 0:
+            rebuild_status["status"] = "success"
+            rebuild_status["message"] = (
+                "Pipeline de mise à jour terminé avec succès. "
+                "Rechargez l'API pour utiliser le nouvel index."
+            )
+            logger.info("✅ Pipeline de mise à jour terminé avec succès")
+            logger.info("⚠️  Redémarrez l'API pour charger le nouvel index FAISS")
+
+            # Note: Le rechargement automatique nécessiterait un redémarrage
+            # Pour l'instant, on laisse l'admin redémarrer l'API manuellement
+
+        else:
+            error_msg = stderr.decode() if stderr else "Erreur inconnue"
+            rebuild_status["status"] = "error"
+            rebuild_status["message"] = f"Échec du pipeline: {error_msg}"
+            logger.error(f"❌ Échec du pipeline de mise à jour: {error_msg}")
+
+    except Exception as e:
+        rebuild_status["status"] = "error"
+        rebuild_status["message"] = f"Erreur lors du rebuild: {str(e)}"
+        logger.error(f"❌ Erreur lors du rebuild: {e}", exc_info=True)
+    finally:
+        rebuild_in_progress = False
+
+
+@app.post("/rebuild", response_model=RebuildResponse)
+async def rebuild_index(background_tasks: BackgroundTasks):
+    """
+    Lance le pipeline de mise à jour incrémentale de l'index FAISS.
+
+    Cette endpoint déclenche le pipeline de mise à jour qui:
+    1. Récupère la date de dernière exécution
+    2. Sauvegarde et vide les collections MongoDB
+    3. Récupère les agendas mis à jour depuis la dernière exécution
+    4. Récupère les événements pour ces agendas (avec filtre de date)
+    5. Dédoublonne les événements
+    6. Génère les chunks et les embeddings
+    7. Reconstruit l'index FAISS
+
+    Le pipeline s'exécute en arrière-plan. Utilisez GET /rebuild/status
+    pour suivre la progression.
+
+    IMPORTANT: Une fois le rebuild terminé, vous devez redémarrer l'API
+    pour charger le nouvel index FAISS en mémoire.
+
+    Returns:
+        RebuildResponse avec le statut de l'opération
+    """
+    global rebuild_in_progress
+
+    if rebuild_in_progress:
+        return RebuildResponse(
+            status="running",
+            message="Un rebuild est déjà en cours",
+            last_update_date=rebuild_status.get("last_update_date"),
+            details={
+                "started_at": rebuild_status.get("started_at"),
+                "current_status": rebuild_status.get("message")
+            }
+        )
+
+    rebuild_in_progress = True
+    background_tasks.add_task(run_rebuild_pipeline)
+
+    return RebuildResponse(
+        status="started",
+        message=(
+            "Pipeline de mise à jour démarré en arrière-plan. "
+            "Utilisez GET /rebuild/status pour suivre la progression."
+        ),
+        last_update_date=None,
+        details={"started_at": datetime.now().isoformat()}
+    )
+
+
+@app.get("/rebuild/status", response_model=RebuildResponse)
+async def rebuild_status_endpoint():
+    """
+    Retourne le statut du rebuild en cours ou du dernier rebuild.
+
+    Returns:
+        RebuildResponse avec le statut actuel
+    """
+    return RebuildResponse(
+        status=rebuild_status["status"],
+        message=rebuild_status["message"],
+        last_update_date=rebuild_status.get("last_update_date"),
+        details={
+            "started_at": rebuild_status.get("started_at"),
+            "in_progress": rebuild_in_progress
+        }
+    )
 
 
 if __name__ == "__main__":
