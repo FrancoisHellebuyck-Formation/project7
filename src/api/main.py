@@ -463,16 +463,39 @@ async def run_rebuild_pipeline():
         stdout, stderr = await process.communicate()
 
         if process.returncode == 0:
-            rebuild_status["status"] = "success"
-            rebuild_status["message"] = (
-                "Pipeline de mise à jour terminé avec succès. "
-                "Rechargez l'API pour utiliser le nouvel index."
-            )
             logger.info("✅ Pipeline de mise à jour terminé avec succès")
-            logger.info("⚠️  Redémarrez l'API pour charger le nouvel index FAISS")
+            logger.info("🔄 Rechargement de l'index FAISS en mémoire...")
 
-            # Note: Le rechargement automatique nécessiterait un redémarrage
-            # Pour l'instant, on laisse l'admin redémarrer l'API manuellement
+            # Recharger le vector store avec le nouvel index
+            try:
+                global vector_store
+                vector_store = load_vector_store(
+                    load_path=FAISS_INDEX_PATH,
+                    embeddings=embeddings_model,
+                    verbose=False
+                )
+
+                # Afficher les nouvelles statistiques
+                stats = get_vector_store_stats(vector_store)
+                logger.info("✅ Nouvel index FAISS chargé en mémoire")
+                logger.info(f"  - Nombre de vecteurs: {stats['num_vectors']:,}")
+                logger.info(f"  - Dimension: {stats['dimension']}")
+
+                rebuild_status["status"] = "success"
+                rebuild_status["message"] = (
+                    "Pipeline terminé avec succès. "
+                    "Nouvel index FAISS chargé automatiquement."
+                )
+            except Exception as reload_error:
+                logger.error(
+                    f"❌ Erreur lors du rechargement de l'index: {reload_error}",
+                    exc_info=True
+                )
+                rebuild_status["status"] = "success_with_warning"
+                rebuild_status["message"] = (
+                    "Pipeline terminé avec succès mais échec du rechargement. "
+                    "Redémarrez l'API manuellement pour charger le nouvel index."
+                )
 
         else:
             error_msg = stderr.decode() if stderr else "Erreur inconnue"
