@@ -443,6 +443,36 @@ async def run_rebuild_pipeline():
 
                 rebuild_status["last_update_date"] = last_update_date
                 logger.info(f"✓ Date de dernière exécution: {last_update_date}")
+
+            # Vérifier s'il y a de nouveaux événements depuis la dernière exécution
+            if last_update_date:
+                events_collection = db[
+                    os.getenv("MONGODB_COLLECTION_NAME_EVENTS", "events")
+                ]
+
+                # Compter les événements créés ou mis à jour depuis la dernière exécution
+                new_events_count = events_collection.count_documents({
+                    "$or": [
+                        {"createdAt": {"$gte": last_update_date}},
+                        {"updatedAt": {"$gte": last_update_date}}
+                    ]
+                })
+
+                logger.info(
+                    f"📊 Événements nouveaux/modifiés depuis la dernière "
+                    f"exécution: {new_events_count}"
+                )
+
+                if new_events_count == 0:
+                    logger.warning("⚠️  Aucun nouvel événement détecté")
+                    rebuild_status["status"] = "warning"
+                    rebuild_status["message"] = (
+                        "Pas de nouveaux événements depuis la dernière exécution. "
+                        "Rebuild annulé."
+                    )
+                    rebuild_in_progress = False
+                    return
+
         finally:
             if client:
                 client.close()
