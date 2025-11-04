@@ -133,10 +133,17 @@ def main():
         )
         sys.exit(1)
 
-    # Définir la variable d'environnement pour tous les scripts suivants
+    # Définir les variables d'environnement pour tous les scripts suivants
     os.environ["OA_AGENDAS_UPDATED_AT_GTE"] = last_execution_date
+    os.environ["OA_EVENTS_DATE_FILTER"] = last_execution_date  # Filtre pour les événements
     logger.info(
         f"✓ Date de mise à jour minimale définie: {last_execution_date}"
+    )
+    logger.info(
+        "  → Les agendas modifiés depuis cette date seront récupérés"
+    )
+    logger.info(
+        "  → Les événements créés ou mis à jour depuis cette date seront inclus"
     )
 
     # Étape 2 : Backup et vidage des collections agendas/events

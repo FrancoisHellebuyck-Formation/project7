@@ -1,6 +1,7 @@
 import requests
 import os
 from dotenv import load_dotenv
+from datetime import datetime
 
 import logging
 from pymongo import MongoClient, UpdateOne
@@ -14,6 +15,7 @@ OA_EVENTS_PATH_SUFFIX = os.getenv(
 )  # Suffixe de chemin pour les événements
 OA_PAGE_SIZE = int(os.getenv("OA_PAGE_SIZE", "100"))  # Taille de page par défaut
 OA_REGION = os.getenv("OA_REGION")  # Région ciblée
+OA_EVENTS_DATE_FILTER = os.getenv("OA_EVENTS_DATE_FILTER")  # Filtre de date pour les événements (mode UPDATE)
 # --- Connexion à MongoDB ---
 # Assurez-vous que votre conteneur Docker MongoDB est en cours d'exécution
 client = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017/"))
@@ -34,6 +36,56 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+def should_include_event(event: dict, date_filter: str = None) -> bool:
+    """
+    Détermine si un événement doit être inclus selon le filtre de date.
+
+    En mode UPDATE, un événement est inclus si:
+    - createdAt >= date_filter OU
+    - updatedAt >= date_filter
+
+    Args:
+        event: Événement à vérifier
+        date_filter: Date minimale au format ISO 8601 (ex: "2025-01-15T10:30:00.000Z")
+
+    Returns:
+        bool: True si l'événement doit être inclus, False sinon
+    """
+    # Si aucun filtre de date, inclure tous les événements
+    if not date_filter:
+        return True
+
+    try:
+        # Parser la date de filtre
+        filter_date = datetime.fromisoformat(date_filter.replace('Z', '+00:00'))
+
+        # Vérifier createdAt
+        created_at = event.get("createdAt")
+        if created_at:
+            try:
+                created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                if created_date >= filter_date:
+                    return True
+            except (ValueError, AttributeError):
+                pass  # Ignorer les dates mal formatées
+
+        # Vérifier updatedAt
+        updated_at = event.get("updatedAt")
+        if updated_at:
+            try:
+                updated_date = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                if updated_date >= filter_date:
+                    return True
+            except (ValueError, AttributeError):
+                pass  # Ignorer les dates mal formatées
+
+        return False
+
+    except Exception as e:
+        logger.warning(f"Erreur lors du filtrage de l'événement {event.get('uid')}: {e}")
+        return True  # En cas d'erreur, inclure l'événement par sécurité
 
 # Paramètres de la requête pour cibler les events
 fields_events = [
@@ -98,6 +150,7 @@ current_params = parametres_events.copy()
 nb_events_total = 0
 nb_events_inserted = 0
 nb_events_updated = 0
+nb_events_filtered_out = 0  # Compteur pour les événements filtrés
 
 try:
     if not OA_BASE_URL:
@@ -105,6 +158,14 @@ try:
             "OA_BASE_URL n'est pas défini dans les variables d'environnement. Impossible de récupérer les événements."
         )
         exit()
+
+    # Afficher le filtre de date si activé
+    if OA_EVENTS_DATE_FILTER:
+        logger.info("=" * 70)
+        logger.info("MODE FILTRAGE ACTIVÉ")
+        logger.info(f"Date minimale: {OA_EVENTS_DATE_FILTER}")
+        logger.info("Seuls les événements créés ou mis à jour après cette date seront inclus")
+        logger.info("=" * 70)
 
     # 1. Récupérer tous les agendas de la base de données
     logger.info(
@@ -154,10 +215,17 @@ try:
                 # 3. Extraction des données JSON
                 data_events = reponse.json()
                 events_to_insert = []
-                for event in data_events.get("events", []):
+                events_received = data_events.get("events", [])
+
+                for event in events_received:
                     # Ajout de l'UID de l'agenda à chaque événement pour faciliter les requêtes futures
                     event["agendaUid"] = agenda_uid
-                    events_to_insert.append(event)
+
+                    # Appliquer le filtre de date si configuré
+                    if should_include_event(event, OA_EVENTS_DATE_FILTER):
+                        events_to_insert.append(event)
+                    else:
+                        nb_events_filtered_out += 1
 
                 # 4. Insertion des données dans MongoDB
                 if events_to_insert:
@@ -207,6 +275,11 @@ try:
     logger.info(f"Nombre total d'événements récupérés : {nb_events_total}")
     logger.info(f"Nombre d'événements insérés : {nb_events_inserted}")
     logger.info(f"Nombre d'événements mis à jour : {nb_events_updated}")
+
+    if OA_EVENTS_DATE_FILTER:
+        logger.info(f"Nombre d'événements filtrés (date < {OA_EVENTS_DATE_FILTER}): {nb_events_filtered_out}")
+        logger.info(f"Taux de filtrage: {nb_events_filtered_out / (nb_events_total + nb_events_filtered_out) * 100:.1f}%" if (nb_events_total + nb_events_filtered_out) > 0 else "N/A")
+
     logger.info("--------------------------------------------------")
 
 except Exception as err:
