@@ -41,10 +41,10 @@ run-embeddings: ## Génère les embeddings et crée l'index FAISS (mode: recreat
 	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/pipeline.py recreate
 	@echo "$(GREEN)✓ Embeddings générés et index créé$(NC)"
 
-run-embeddings-update: ## Met à jour l'index FAISS avec les nouveaux événements (mode: update)
-	@echo "$(YELLOW)🔄 Mise à jour incrémentale de l'index FAISS (UPDATE)...$(NC)"
-	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/pipeline.py update
-	@echo "$(GREEN)✓ Index mis à jour$(NC)"
+run-update: ## Met à jour tout le pipeline (agendas → events → chunks → embeddings) en mode incrémental
+	@echo "$(YELLOW)🔄 Mise à jour incrémentale complète du pipeline (UPDATE)...$(NC)"
+	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/update_pipeline.py
+	@echo "$(GREEN)✓ Pipeline mis à jour$(NC)"
 
 show-last-update: ## Affiche les paramètres de la dernière exécution du pipeline
 	@echo "$(BLUE)📊 Affichage des derniers paramètres utilisés...$(NC)"
@@ -164,8 +164,7 @@ status: ## Affiche le statut du projet
 # Alias pratiques
 chunks: run-chunks ## Alias pour run-chunks
 embeddings: run-embeddings ## Alias pour run-embeddings (mode recreate)
-embeddings-update: run-embeddings-update ## Alias pour run-embeddings-update (mode update)
-update: run-embeddings-update ## Alias pour run-embeddings-update (mode update)
+update: run-update ## Alias pour run-update (mise à jour incrémentale complète)
 vectorstore: run-vectorstore ## Alias pour run-vectorstore
 serve: serve-vectorstore ## Alias pour serve-vectorstore
 api: run-api ## Alias pour run-api
