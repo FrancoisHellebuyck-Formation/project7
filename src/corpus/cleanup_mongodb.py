@@ -213,6 +213,110 @@ def cleanup_mongodb(dry_run: bool = False) -> dict:
             logger.info("Connexion MongoDB fermée")
 
 
+def backup_and_clear_for_update(verbose: bool = True) -> dict:
+    """
+    Backup spécifique pour les mises à jour incrémentales.
+
+    Archive les collections agendas et events, puis les vide.
+    Ne touche PAS à la collection last_update (nécessaire pour connaître la dernière date).
+
+    Args:
+        verbose: Si True, affiche des informations détaillées
+
+    Returns:
+        dict: Statistiques du backup et nettoyage
+    """
+    load_dotenv()
+
+    agendas_collection_name = os.getenv("MONGODB_COLLECTION_NAME_AGENDAS", "agendas")
+    events_collection_name = os.getenv("MONGODB_COLLECTION_NAME_EVENTS", "events")
+
+    stats = {
+        "timestamp": get_backup_timestamp(),
+        "collections_backed_up": 0,
+        "collections_cleared": 0,
+        "agendas": {"backed_up": False, "cleared": False, "count": 0},
+        "events": {"backed_up": False, "cleared": False, "count": 0},
+    }
+
+    client = None
+    try:
+        # Connexion à MongoDB
+        client, db = get_mongodb_connection()
+
+        # Générer le suffixe de backup
+        backup_suffix = f"_update_{stats['timestamp']}"
+
+        if verbose:
+            logger.info("=" * 70)
+            logger.info("BACKUP POUR MISE À JOUR INCRÉMENTALE")
+            logger.info("=" * 70)
+            logger.info("⚠️  Les collections agendas et events vont être archivées puis vidées")
+            logger.info("✓  La collection last_update sera préservée (contient la date de dernière exécution)")
+            logger.info("=" * 70)
+
+        # Traiter les collections agendas et events
+        collections_to_process = [
+            (agendas_collection_name, "agendas"),
+            (events_collection_name, "events"),
+        ]
+
+        for collection_name, stats_key in collections_to_process:
+            if collection_exists(db, collection_name):
+                collection = db[collection_name]
+                count = collection.count_documents({})
+
+                if count > 0:
+                    backup_name = f"{collection_name}{backup_suffix}"
+
+                    if verbose:
+                        logger.info(f"\n📦 Collection '{collection_name}':")
+                        logger.info(f"   - Documents: {count:,}")
+                        logger.info(f"   → Backup en '{backup_name}'")
+
+                    # Backup: renommer la collection
+                    success = rename_collection(db, collection_name, backup_name)
+
+                    if success:
+                        stats["collections_backed_up"] += 1
+                        stats[stats_key]["backed_up"] = True
+                        stats[stats_key]["count"] = count
+
+                        if verbose:
+                            logger.info(f"   ✅ Backup créé")
+
+                        # La collection originale n'existe plus (renommée)
+                        # Elle sera recréée automatiquement lors de l'insertion
+                        stats["collections_cleared"] += 1
+                        stats[stats_key]["cleared"] = True
+
+                        if verbose:
+                            logger.info(f"   ✅ Collection vidée (sera recréée)")
+                else:
+                    if verbose:
+                        logger.info(f"\nℹ️  Collection '{collection_name}' vide - aucun backup nécessaire")
+            else:
+                if verbose:
+                    logger.info(f"\nℹ️  Collection '{collection_name}' n'existe pas - sera créée")
+
+        if verbose:
+            logger.info("\n" + "=" * 70)
+            logger.info("✅ BACKUP ET NETTOYAGE TERMINÉS")
+            logger.info("=" * 70)
+            logger.info(f"Collections sauvegardées: {stats['collections_backed_up']}")
+            logger.info(f"Collections vidées: {stats['collections_cleared']}")
+            logger.info("=" * 70)
+
+        return stats
+
+    except Exception as e:
+        logger.error(f"❌ Erreur lors du backup: {e}", exc_info=True)
+        raise
+    finally:
+        if client:
+            client.close()
+
+
 def main():
     """
     Point d'entrée principal du script de nettoyage.

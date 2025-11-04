@@ -114,15 +114,16 @@ def main():
     logger.info("=" * 70)
     logger.info("Ce pipeline va :")
     logger.info("  1. Récupérer la date de dernière exécution")
-    logger.info("  2. Récupérer les agendas mis à jour depuis cette date")
-    logger.info("  3. Récupérer les événements pour ces agendas")
-    logger.info("  4. Dédoublonner les événements")
-    logger.info("  5. Chunker les documents")
-    logger.info("  6. Générer les embeddings et mettre à jour FAISS")
+    logger.info("  2. Sauvegarder et vider les collections agendas/events")
+    logger.info("  3. Récupérer les agendas mis à jour depuis cette date")
+    logger.info("  4. Récupérer les événements pour ces agendas")
+    logger.info("  5. Dédoublonner les événements")
+    logger.info("  6. Chunker les documents")
+    logger.info("  7. Générer les embeddings et mettre à jour FAISS")
     logger.info("=" * 70 + "\n")
 
     # Étape 1 : Récupérer la date de dernière exécution
-    logger.info("[1/6] Récupération de la date de dernière exécution...")
+    logger.info("[1/7] Récupération de la date de dernière exécution...")
     last_execution_date = get_last_execution_date()
 
     if not last_execution_date:
@@ -138,36 +139,47 @@ def main():
         f"✓ Date de mise à jour minimale définie: {last_execution_date}"
     )
 
-    # Étape 2 : Récupération des agendas
+    # Étape 2 : Backup et vidage des collections agendas/events
+    logger.info("\n[2/7] Sauvegarde et vidage des collections...")
+    try:
+        from corpus.cleanup_mongodb import backup_and_clear_for_update
+
+        backup_and_clear_for_update(verbose=True)
+        logger.info("✅ Collections sauvegardées et vidées")
+    except Exception as e:
+        logger.error(f"❌ Échec du backup: {e}")
+        sys.exit(1)
+
+    # Étape 3 : Récupération des agendas
     if not run_command(
         ["uv", "run", "python", "src/corpus/get_corpus_agendas.py"],
-        "[2/6] Récupération des agendas mis à jour",
+        "[3/7] Récupération des agendas mis à jour",
     ):
         logger.error("❌ Échec de la récupération des agendas")
         sys.exit(1)
 
-    # Étape 3 : Récupération des événements
+    # Étape 4 : Récupération des événements
     if not run_command(
         ["uv", "run", "python", "src/corpus/get_corpus_events.py"],
-        "[3/6] Récupération des événements",
+        "[4/7] Récupération des événements",
     ):
         logger.error("❌ Échec de la récupération des événements")
         sys.exit(1)
 
-    # Étape 4 : Dédoublonnement
+    # Étape 5 : Dédoublonnement
     if not run_command(
         ["uv", "run", "python", "src/corpus/deduplicate_events.py"],
-        "[4/6] Dédoublonnement des événements",
+        "[5/7] Dédoublonnement des événements",
     ):
         logger.error("❌ Échec du dédoublonnement")
         sys.exit(1)
 
-    # Étape 5 : Chunking (pas de script séparé, intégré dans pipeline.py)
+    # Étape 6 : Chunking (pas de script séparé, intégré dans pipeline.py)
     logger.info("=" * 70)
-    logger.info("[5/6] Chunking des documents (intégré dans étape 6)")
+    logger.info("[6/7] Chunking des documents (intégré dans étape 7)")
     logger.info("=" * 70)
 
-    # Étape 6 : Génération des embeddings (mode update)
+    # Étape 7 : Génération des embeddings (mode update)
     # Le pipeline.py en mode update va :
     # - Charger les documents depuis MongoDB
     # - Créer les chunks
@@ -175,7 +187,7 @@ def main():
     # - Créer le nouvel index avec tous les documents
     if not run_command(
         ["uv", "run", "python", "src/pipeline.py", "update"],
-        "[6/6] Génération des embeddings et mise à jour FAISS",
+        "[7/7] Génération des embeddings et mise à jour FAISS",
     ):
         logger.error("❌ Échec de la génération des embeddings")
         sys.exit(1)
