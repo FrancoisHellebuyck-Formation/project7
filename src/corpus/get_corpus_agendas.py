@@ -1,6 +1,7 @@
 import requests
 import os
 from dotenv import load_dotenv
+from datetime import datetime, timedelta, timezone
 
 import logging
 from pymongo import MongoClient, UpdateOne
@@ -11,6 +12,26 @@ API_KEY = os.getenv("OA_API_KEY")
 REQUEST_AGENDA_REGION = os.getenv("OA_REGION")  # Région ciblée
 AGENDAS_ENDPOINT = os.getenv("OA_AGENDAS_ENDPOINT")  # Endpoint pour les agendas
 OA_PAGE_SIZE = int(os.getenv("OA_PAGE_SIZE", "100"))  # Taille de page par défaut
+
+
+def get_default_updated_date() -> str:
+    """
+    Calcule la date par défaut pour updatedAt.gte (aujourd'hui - 1 an).
+
+    Returns:
+        str: Date au format ISO 8601 (ex: "2024-11-03T00:00:00.000Z")
+    """
+    one_year_ago = datetime.now(timezone.utc) - timedelta(days=365)
+    return one_year_ago.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+# Date de mise à jour minimale pour filtrer les agendas
+# Par défaut: date du jour - 1 an
+# Peut être surchargée via la variable d'environnement OA_AGENDAS_UPDATED_AT_GTE
+OA_AGENDAS_UPDATED_AT_GTE = os.getenv(
+    "OA_AGENDAS_UPDATED_AT_GTE",
+    get_default_updated_date()
+)
 
 # --- Connexion à MongoDB ---
 # Assurez-vous que votre conteneur Docker MongoDB est en cours d'exécution
@@ -34,7 +55,7 @@ parametres_agendas = {
     "official": 1,  # Agendas officiels uniquement
     "search": REQUEST_AGENDA_REGION,  # Région ciblée
     "size": OA_PAGE_SIZE,  # Nombre maximum d'agendas à récupérer par requête
-    "updatedAt.gte": "2025-01-01T12:00:00.000Z",
+    "updatedAt.gte": OA_AGENDAS_UPDATED_AT_GTE,  # Date de mise à jour minimale
     "sort": "createdAt.desc",
 }
 
@@ -44,6 +65,14 @@ current_params = parametres_agendas.copy()
 nb_agendas_total = 0
 nb_agendas_inserted = 0
 nb_agendas_updated = 0
+
+# Log de la date de filtrage utilisée
+logger.info("=" * 70)
+logger.info("RÉCUPÉRATION DES AGENDAS DEPUIS OPENAGENDA API")
+logger.info("=" * 70)
+logger.info(f"Région ciblée: {REQUEST_AGENDA_REGION}")
+logger.info(f"Date de mise à jour minimale: {OA_AGENDAS_UPDATED_AT_GTE}")
+logger.info("=" * 70)
 
 try:
     while True:

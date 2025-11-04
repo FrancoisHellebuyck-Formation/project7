@@ -36,10 +36,23 @@ run-chunks: ## Lance le pipeline de chunking des documents
 	$(UV) run $(PYTHON) $(SRC_DIR)/chunks/chunks_document.py
 	@echo "$(GREEN)✓ Pipeline de chunking terminé$(NC)"
 
-run-embeddings: ## Génère les embeddings et crée l'index FAISS
-	@echo "$(GREEN)🧠 Génération des embeddings et création de l'index FAISS...$(NC)"
-	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/pipeline.py
+run-embeddings: ## Génère les embeddings et crée l'index FAISS (mode: recreate)
+	@echo "$(GREEN)🧠 Génération des embeddings et création de l'index FAISS (RECREATE)...$(NC)"
+	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/pipeline.py recreate
 	@echo "$(GREEN)✓ Embeddings générés et index créé$(NC)"
+
+run-embeddings-update: ## Met à jour l'index FAISS avec les nouveaux événements (mode: update)
+	@echo "$(YELLOW)🔄 Mise à jour incrémentale de l'index FAISS (UPDATE)...$(NC)"
+	KMP_DUPLICATE_LIB_OK=TRUE $(UV) run $(PYTHON) $(SRC_DIR)/pipeline.py update
+	@echo "$(GREEN)✓ Index mis à jour$(NC)"
+
+show-last-update: ## Affiche les paramètres de la dernière exécution du pipeline
+	@echo "$(BLUE)📊 Affichage des derniers paramètres utilisés...$(NC)"
+	@$(UV) run $(PYTHON) $(SRC_DIR)/utils/show_last_update.py
+
+show-history: ## Affiche l'historique des dernières exécutions (par défaut: 5)
+	@echo "$(BLUE)📜 Affichage de l'historique des exécutions...$(NC)"
+	@$(UV) run $(PYTHON) $(SRC_DIR)/utils/show_last_update.py --history 5
 
 run-vectorstore: ## Démarre et teste le vector store existant
 	@echo "$(GREEN)🔍 Démarrage du vector store...$(NC)"
@@ -67,6 +80,11 @@ run-ui: ## Lance l'interface Streamlit du chatbot
 	@echo "$(YELLOW)   Interface disponible sur http://localhost:8501$(NC)"
 	$(UV) run streamlit run $(SRC_DIR)/ui/chatbot.py
 
+cleanup-mongodb: ## Archive les collections MongoDB existantes (backup avec date)
+	@echo "$(YELLOW)🗄️  Archivage des collections MongoDB...$(NC)"
+	$(UV) run $(PYTHON) $(SRC_DIR)/corpus/cleanup_mongodb.py
+	@echo "$(GREEN)✓ Archivage terminé$(NC)"
+
 run-agendas: ## Récupère les agendas depuis l'API OpenAgenda
 	@echo "$(GREEN)📅 Récupération des agendas...$(NC)"
 	$(UV) run $(PYTHON) $(SRC_DIR)/corpus/get_corpus_agendas.py
@@ -77,7 +95,12 @@ run-events: ## Récupère les événements depuis l'API OpenAgenda
 	$(UV) run $(PYTHON) $(SRC_DIR)/corpus/get_corpus_events.py
 	@echo "$(GREEN)✓ Événements récupérés$(NC)"
 
-run-all: run-agendas run-events run-chunks run-embeddings ## Lance le pipeline complet (agendas → événements → chunks → embeddings)
+deduplicate-events: ## Dédoublonne la collection MongoDB events (basé sur uid)
+	@echo "$(GREEN)🔄 Dédoublonnement de la collection events...$(NC)"
+	$(UV) run $(PYTHON) $(SRC_DIR)/corpus/deduplicate_events.py
+	@echo "$(GREEN)✓ Dédoublonnement terminé$(NC)"
+
+run-all: cleanup-mongodb run-agendas run-events deduplicate-events run-chunks run-embeddings ## Lance le pipeline complet (cleanup → agendas → événements → dédoublonnement → chunks → embeddings)
 	@echo "$(GREEN)✓ Pipeline complet terminé avec succès !$(NC)"
 
 lint: ## Vérifie le code avec flake8
@@ -140,10 +163,16 @@ status: ## Affiche le statut du projet
 
 # Alias pratiques
 chunks: run-chunks ## Alias pour run-chunks
-embeddings: run-embeddings ## Alias pour run-embeddings
+embeddings: run-embeddings ## Alias pour run-embeddings (mode recreate)
+embeddings-update: run-embeddings-update ## Alias pour run-embeddings-update (mode update)
+update: run-embeddings-update ## Alias pour run-embeddings-update (mode update)
 vectorstore: run-vectorstore ## Alias pour run-vectorstore
 serve: serve-vectorstore ## Alias pour serve-vectorstore
 api: run-api ## Alias pour run-api
 agendas: run-agendas ## Alias pour run-agendas
 events: run-events ## Alias pour run-events
+deduplicate: deduplicate-events ## Alias pour deduplicate-events
+cleanup: cleanup-mongodb ## Alias pour cleanup-mongodb
+last-update: show-last-update ## Alias pour show-last-update
+history: show-history ## Alias pour show-history
 all: run-all ## Alias pour run-all
