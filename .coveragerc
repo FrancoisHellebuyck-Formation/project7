@@ -1,0 +1,31 @@
+[run]
+omit =
+    # Scripts CLI et utilitaires - non critiques pour les tests
+    src/main.py
+    src/pipeline.py
+    src/update_pipeline.py
+    src/vectors/server.py
+    src/utils/*
+    src/corpus/*
+    src/chat/*
+
+[report]
+exclude_lines =
+    # Standard pragma
+    pragma: no cover
+
+    # Blocs de débogage
+    def __repr__
+    if self\.debug
+
+    # Code ne s'exécutant pas en production
+    if __name__ == .__main__.:
+
+    # Abstract methods
+    @(abc\.)?abstractmethod
+
+    # Pass statements
+    ^\s*pass\s*$
+
+    # Ellipsis
+    ^\s*\.\.\.\s*$
