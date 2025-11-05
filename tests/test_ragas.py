@@ -19,9 +19,19 @@ Prérequis :
 
 import os
 import logging
+import time
 import pytest
 import requests
 from typing import List, Dict, Any
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement de test
+test_env_path = Path(__file__).parent.parent / ".env.test"
+if test_env_path.exists():
+    load_dotenv(test_env_path)
+    logger_init = logging.getLogger(__name__)
+    logger_init.info(f"Configuration de test chargée depuis {test_env_path}")
 
 # Configuration du logging
 logging.basicConfig(
@@ -69,10 +79,15 @@ def ragas_test_data():
 
 @pytest.fixture
 def ragas_config():
-    """Configuration pour l'évaluation RAGAS."""
+    """
+    Configuration pour l'évaluation RAGAS.
+
+    Charge les paramètres depuis .env.test avec des valeurs par défaut.
+    """
     return {
-        "top_k": 5,  # Nombre de contextes à récupérer
-        "timeout": 30,  # Timeout pour les requêtes API (secondes)
+        "top_k": int(os.getenv("RAGAS_TOP_K", "5")),
+        "timeout": int(os.getenv("RAGAS_API_TIMEOUT", "30")),
+        "mistral_delay": float(os.getenv("RAGAS_MISTRAL_DELAY", "2.0")),
     }
 
 
@@ -107,11 +122,26 @@ def check_api_health(api_url: str) -> bool:
         return False
 
 
+def apply_mistral_delay(delay: float = 2.0):
+    """
+    Applique un délai entre les appels à l'API Mistral.
+
+    Permet d'éviter de dépasser les limites de quota (rate limiting).
+
+    Args:
+        delay : Délai en secondes (par défaut: 2.0)
+    """
+    if delay > 0:
+        logger.debug(f"⏳ Attente de {delay}s avant le prochain appel Mistral...")
+        time.sleep(delay)
+
+
 def get_rag_response(
     api_url: str,
     question: str,
     k: int = 5,
-    timeout: int = 30
+    timeout: int = 30,
+    mistral_delay: float = 0.0
 ) -> Dict[str, Any]:
     """
     Récupère une réponse du système RAG via l'API.
@@ -121,6 +151,7 @@ def get_rag_response(
         question : Question à poser
         k : Nombre de contextes à récupérer
         timeout : Timeout pour la requête
+        mistral_delay : Délai à appliquer après l'appel (pour éviter rate limiting)
 
     Returns:
         dict : Réponse contenant answer, context_used, tokens_used
@@ -136,7 +167,13 @@ def get_rag_response(
             timeout=timeout
         )
         response.raise_for_status()
-        return response.json()
+        result = response.json()
+
+        # Appliquer le délai après un appel réussi
+        if mistral_delay > 0:
+            apply_mistral_delay(mistral_delay)
+
+        return result
     except requests.exceptions.HTTPError as e:
         # Gestion spéciale pour les erreurs 429 (rate limit Mistral)
         if e.response.status_code == 500:
@@ -215,6 +252,10 @@ def test_rag_retrieval_quality(api_url, ragas_test_data, ragas_config):
     logger.info("=" * 70)
     logger.info("TEST DE QUALITÉ DE RÉCUPÉRATION DES CONTEXTES")
     logger.info("=" * 70)
+    logger.info(f"Configuration: top_k={ragas_config['top_k']}, "
+                f"timeout={ragas_config['timeout']}s, "
+                f"mistral_delay={ragas_config['mistral_delay']}s")
+    logger.info("")
 
     results = []
 
@@ -223,12 +264,13 @@ def test_rag_retrieval_quality(api_url, ragas_test_data, ragas_config):
         logger.info(f"\nTest {i}/{len(ragas_test_data)}")
         logger.info(f"Question: {question}")
 
-        # Récupérer la réponse RAG
+        # Récupérer la réponse RAG (avec délai configuré)
         response = get_rag_response(
             api_url,
             question,
             k=ragas_config["top_k"],
-            timeout=ragas_config["timeout"]
+            timeout=ragas_config["timeout"],
+            mistral_delay=ragas_config["mistral_delay"]
         )
 
         # Vérifier la structure de la réponse
@@ -303,12 +345,13 @@ def test_rag_answer_generation(api_url, ragas_test_data, ragas_config):
         logger.info(f"\nTest {i}/{len(ragas_test_data)}")
         logger.info(f"Question: {question}")
 
-        # Récupérer la réponse RAG
+        # Récupérer la réponse RAG (avec délai configuré)
         response = get_rag_response(
             api_url,
             question,
             k=ragas_config["top_k"],
-            timeout=ragas_config["timeout"]
+            timeout=ragas_config["timeout"],
+            mistral_delay=ragas_config["mistral_delay"]
         )
 
         answer = response["answer"]
@@ -370,12 +413,13 @@ def test_rag_end_to_end(api_url, ragas_config):
 
     logger.info(f"\nQuestion: {question}")
 
-    # Récupérer la réponse RAG
+    # Récupérer la réponse RAG (avec délai configuré)
     response = get_rag_response(
         api_url,
         question,
         k=ragas_config["top_k"],
-        timeout=ragas_config["timeout"]
+        timeout=ragas_config["timeout"],
+        mistral_delay=ragas_config["mistral_delay"]
     )
 
     # Vérifications de base
