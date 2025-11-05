@@ -95,7 +95,12 @@ def check_api_health(api_url: str) -> bool:
         if response.status_code == 200:
             data = response.json()
             logger.info(f"API Health Check: {data}")
-            return data.get("status") == "healthy"
+            # Vérifier que l'API retourne un statut valide (ok ou healthy)
+            # et que les composants essentiels sont chargés
+            status_ok = data.get("status") in ["ok", "healthy"]
+            vector_store_ok = data.get("vector_store_loaded", False)
+            embeddings_ok = data.get("embeddings_model_loaded", False)
+            return status_ok and vector_store_ok and embeddings_ok
         return False
     except requests.exceptions.RequestException as e:
         logger.error(f"Erreur lors du health check: {e}")
@@ -119,6 +124,10 @@ def get_rag_response(
 
     Returns:
         dict : Réponse contenant answer, context_used, tokens_used
+
+    Raises:
+        requests.exceptions.HTTPError : Si l'API retourne une erreur
+        pytest.skip : Si l'API Mistral a dépassé son quota (429)
     """
     try:
         response = requests.post(
@@ -128,6 +137,20 @@ def get_rag_response(
         )
         response.raise_for_status()
         return response.json()
+    except requests.exceptions.HTTPError as e:
+        # Gestion spéciale pour les erreurs 429 (rate limit Mistral)
+        if e.response.status_code == 500:
+            try:
+                error_detail = e.response.json().get("detail", "")
+                if "429" in error_detail or "capacity exceeded" in error_detail.lower():
+                    pytest.skip(
+                        "API Mistral a dépassé son quota (429). "
+                        "Réessayez plus tard ou augmentez votre tier."
+                    )
+            except Exception:
+                pass
+        logger.error(f"Erreur HTTP lors de la requête RAG: {e}")
+        raise
     except requests.exceptions.RequestException as e:
         logger.error(f"Erreur lors de la requête RAG: {e}")
         raise
