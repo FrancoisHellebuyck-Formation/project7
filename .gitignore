@@ -698,3 +698,4 @@ mongodb_data/
 CLAUDE.md
 .claude/
 data/faiss_index
+coverage.json
