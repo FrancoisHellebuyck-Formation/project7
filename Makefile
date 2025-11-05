@@ -116,6 +116,20 @@ test-cov: ## Lance les tests avec rapport de couverture
 	$(UV) run pytest tests/ -v --cov=src --cov-report=term-missing
 	@echo "$(GREEN)✓ Tests et couverture terminés$(NC)"
 
+test-ragas: ## Lance les tests d'évaluation RAGAS du système RAG
+	@echo "$(BLUE)═══════════════════════════════════════════════════════════$(NC)"
+	@echo "$(YELLOW)🎯 Lancement des tests RAGAS (évaluation du RAG)$(NC)"
+	@echo "$(BLUE)═══════════════════════════════════════════════════════════$(NC)"
+	@echo ""
+	@echo "$(YELLOW)⚠️  Prérequis :$(NC)"
+	@echo "   - API RAG démarrée : make run-api"
+	@echo "   - Index FAISS créé : make run-embeddings"
+	@echo "   - MISTRAL_API_KEY configurée dans .env"
+	@echo ""
+	@$(UV) run pytest tests/test_ragas.py -v -m ragas -s
+	@echo ""
+	@echo "$(GREEN)✓ Tests RAGAS terminés$(NC)"
+
 docker-up: ## Démarre MongoDB avec Docker Compose
 	@echo "$(GREEN)🐳 Démarrage de MongoDB...$(NC)"
 	docker-compose up -d
