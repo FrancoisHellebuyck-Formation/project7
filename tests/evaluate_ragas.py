@@ -19,7 +19,7 @@ Usage:
 
 Arguments:
     fichier_questions.json : Optionnel, chemin vers le fichier de questions
-                             (défaut: ragas_test_questions_collected.json)
+                             (défaut: ragas_data/ragas_test_questions_collected.json)
 """
 
 import os
@@ -30,6 +30,7 @@ import argparse
 import requests
 from typing import List, Dict, Any
 from pathlib import Path
+from datetime import datetime
 from dotenv import load_dotenv
 from datasets import Dataset
 from ragas import evaluate
@@ -74,7 +75,7 @@ def load_test_questions(json_path: str = None) -> List[Dict[str, Any]]:
     """
     Charge les cas de test depuis un fichier JSON.
 
-    Par défaut, utilise UNIQUEMENT le fichier ragas_test_questions_collected.json.
+    Par défaut, utilise UNIQUEMENT le fichier ragas_data/ragas_test_questions_collected.json.
     Si ce fichier n'existe pas, le script s'arrête avec une erreur explicite.
 
     Pour générer ce fichier: make collect-ragas
@@ -96,14 +97,16 @@ def load_test_questions(json_path: str = None) -> List[Dict[str, Any]]:
     }
 
     Args:
-        json_path : Chemin vers le fichier JSON (optionnel, utilise ragas_test_questions_collected.json si None)
+        json_path : Chemin vers le fichier JSON (optionnel, utilise ragas_data/ragas_test_questions_collected.json si None)
 
     Returns:
         list : Liste de dictionnaires avec question, answer, contexts, ground_truth
     """
     if json_path is None:
         # Utiliser UNIQUEMENT le fichier collected
-        collected_path = Path(__file__).parent / "ragas_test_questions_collected.json"
+        collected_path = (
+            Path(__file__).parent / "ragas_data" / "ragas_test_questions_collected.json"
+        )
 
         if not collected_path.exists():
             print("\n❌ ERREUR: Fichier de données collectées introuvable")
@@ -207,51 +210,6 @@ def check_api_health() -> bool:
         return False
 
 
-def get_rag_response(question: str) -> Dict[str, Any]:
-    """
-    Récupère une réponse du système RAG via l'API.
-
-    Args:
-        question : Question à poser
-
-    Returns:
-        dict : Réponse contenant answer, context_used, tokens_used
-
-    Raises:
-        requests.exceptions.HTTPError : Si l'API retourne une erreur
-    """
-    try:
-        response = requests.post(
-            f"{API_URL}/ask",
-            json={"question": question, "k": RAGAS_TOP_K},
-            timeout=RAGAS_API_TIMEOUT
-        )
-        response.raise_for_status()
-        result = response.json()
-
-        # Appliquer le délai après un appel réussi
-        if RAGAS_MISTRAL_DELAY > 0:
-            time.sleep(RAGAS_MISTRAL_DELAY)
-
-        return result
-    except requests.exceptions.HTTPError as e:
-        # Gestion spéciale pour les erreurs 429 (rate limit Mistral)
-        if e.response.status_code == 500:
-            try:
-                error_detail = e.response.json().get("detail", "")
-                if "429" in error_detail or "capacity exceeded" in error_detail.lower():
-                    print(f"\n⚠️  API Mistral a dépassé son quota (429) pour la question: {question}")
-                    print("   Réessayez plus tard ou augmentez votre tier.")
-                    return None
-            except Exception:
-                pass
-        print(f"❌ Erreur HTTP lors de la requête RAG: {e}")
-        raise
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Erreur lors de la requête RAG: {e}")
-        raise
-
-
 def format_contexts_for_ragas(context_used: List[Dict[str, Any]]) -> List[str]:
     """
     Formate les contextes récupérés pour l'évaluation RAGAS.
@@ -269,114 +227,104 @@ def format_contexts_for_ragas(context_used: List[Dict[str, Any]]) -> List[str]:
     return [ctx.get("content", "") for ctx in context_used]
 
 
-def collect_rag_data(test_cases: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def validate_ragas_data(test_cases: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Collecte les données du système RAG pour tous les cas de test.
+    Valide que les données RAGAS sont complètes dans le fichier JSON.
 
-    Si un cas de test a déjà answer et contexts (pré-collectés), ils sont utilisés.
-    Sinon, le script interroge l'API RAG pour collecter ces données dynamiquement.
+    Cette fonction ne fait AUCUN appel API et ne lance PAS le RAG.
+    Elle vérifie uniquement que chaque cas de test contient toutes les données:
+    - question
+    - answer (pré-collecté via make collect-ragas)
+    - contexts (pré-collectés via make collect-ragas)
+    - ground_truth
+
+    Si des données sont manquantes, le script s'arrête et affiche un message
+    clair indiquant comment collecter les données manquantes.
 
     Args:
         test_cases : Liste des cas de test chargés depuis JSON
 
     Returns:
-        list : Liste de dictionnaires avec question, answer, contexts, ground_truth
+        list : Liste de dictionnaires valides avec question, answer, contexts, ground_truth
+
+    Raises:
+        SystemExit : Si des données manquantes ou invalides sont détectées
     """
     print("\n" + "=" * 70)
-    print("📊 COLLECTE DES DONNÉES POUR L'ÉVALUATION RAGAS")
+    print("✅ VALIDATION DES DONNÉES RAGAS")
     print("=" * 70)
-    print(f"\nNombre de cas de test: {len(test_cases)}")
-    print(f"Configuration: top_k={RAGAS_TOP_K}, timeout={RAGAS_API_TIMEOUT}s, delay={RAGAS_MISTRAL_DELAY}s")
-    print("")
+    print(f"Nombre de cas de test à valider: {len(test_cases)}\n")
 
     results = []
-    collected_count = 0
-    pre_collected_count = 0
+    valid_count = 0
+    invalid_cases = []
 
     for i, test_case in enumerate(test_cases, 1):
-        question = test_case["question"]
-        ground_truth = test_case["ground_truth"]
         test_id = test_case.get("id", f"test_{i:03d}")
+        question = test_case.get("question")
+        answer = test_case.get("answer")
+        contexts = test_case.get("contexts")
+        ground_truth = test_case.get("ground_truth")
 
-        print(f"\n[{i}/{len(test_cases)}] {test_id}")
-        print(f"   Question: {question}")
+        print(f"[{i}/{len(test_cases)}] {test_id}")
 
-        # Vérifier si answer et contexts sont déjà fournis
-        if test_case.get("answer") and test_case.get("contexts"):
-            print("   ✓ Données pré-collectées trouvées dans le JSON")
-            answer = test_case["answer"]
-            contexts = test_case["contexts"]
+        # Vérifier que toutes les données requises sont présentes
+        errors = []
 
-            # Vérifier la validité des données pré-collectées
-            if not answer or len(answer) < 50:
-                print(f"   ⚠️  Réponse pré-collectée trop courte ({len(answer)} caractères), collecte dynamique...")
-            elif not contexts or len(contexts) == 0:
-                print("   ⚠️  Aucun contexte pré-collecté, collecte dynamique...")
-            else:
-                # Utiliser les données pré-collectées
-                # contexts peut être une liste de strings ou une liste de dicts
-                if isinstance(contexts[0], dict):
-                    # Format API: list of dicts with 'content' key
-                    formatted_contexts = format_contexts_for_ragas(contexts)
-                else:
-                    # Format RAGAS: list of strings (déjà formaté)
-                    formatted_contexts = contexts
+        if not question:
+            errors.append("question manquante")
+        if not answer:
+            errors.append("answer manquante")
+        elif len(answer) < 50:
+            errors.append(f"answer trop courte ({len(answer)} caractères)")
+        if not contexts or len(contexts) == 0:
+            errors.append("contexts manquants")
+        if not ground_truth:
+            errors.append("ground_truth manquant")
 
-                results.append({
-                    "question": question,
-                    "answer": answer,
-                    "contexts": formatted_contexts,
-                    "ground_truth": ground_truth
-                })
-
-                print(f"   ✅ Pré-collecté: {len(answer)} caractères, {len(formatted_contexts)} contextes")
-                pre_collected_count += 1
-                continue
-
-        # Pas de données pré-collectées ou invalides -> collecte dynamique
-        print("   🔍 Collecte dynamique via API RAG...")
-
-        # Récupérer la réponse RAG
-        response = get_rag_response(question)
-
-        if response is None:
-            print("   ⚠️  Cas ignoré (erreur 429 ou timeout)")
+        if errors:
+            print(f"   ❌ INVALIDE: {', '.join(errors)}")
+            invalid_cases.append({
+                "id": test_id,
+                "errors": errors
+            })
             continue
 
-        # Vérifier la structure de la réponse
-        if "answer" not in response or "context_used" not in response:
-            print("   ❌ Réponse invalide (structure incorrecte)")
-            continue
+        # Formater les contextes si nécessaire
+        if isinstance(contexts[0], dict):
+            # Format API: list of dicts with 'content' key
+            formatted_contexts = format_contexts_for_ragas(contexts)
+        else:
+            # Format RAGAS: list of strings (déjà formaté)
+            formatted_contexts = contexts
 
-        answer = response["answer"]
-        contexts = response["context_used"]
-
-        # Vérifier que la réponse et les contextes sont valides
-        if not answer or len(answer) < 50:
-            print(f"   ⚠️  Réponse trop courte ({len(answer)} caractères), ignorée")
-            continue
-
-        if len(contexts) == 0:
-            print("   ⚠️  Aucun contexte récupéré, cas ignoré")
-            continue
-
-        # Collecter les données
         results.append({
             "question": question,
             "answer": answer,
-            "contexts": format_contexts_for_ragas(contexts),
+            "contexts": formatted_contexts,
             "ground_truth": ground_truth
         })
 
-        print(f"   ✅ Collecté: {len(answer)} caractères, {len(contexts)} contextes")
-        collected_count += 1
+        print(f"   ✅ VALIDE: {len(answer)} caractères, {len(formatted_contexts)} contextes")
+        valid_count += 1
 
     print(f"\n{'=' * 70}")
-    print(f"✅ Collecte terminée: {len(results)}/{len(test_cases)} cas traités")
-    if pre_collected_count > 0:
-        print(f"   - {pre_collected_count} cas pré-collectés")
-    if collected_count > 0:
-        print(f"   - {collected_count} cas collectés dynamiquement")
+    print("📊 RÉSULTAT DE LA VALIDATION")
+    print("=" * 70)
+    print(f"✅ Cas valides: {valid_count}/{len(test_cases)}")
+    print(f"❌ Cas invalides: {len(invalid_cases)}/{len(test_cases)}")
+
+    if invalid_cases:
+        print("\n⚠️  CAS INVALIDES DÉTECTÉS:")
+        for case in invalid_cases:
+            print(f"   - {case['id']}: {', '.join(case['errors'])}")
+        print("\n💡 Pour collecter les données manquantes:")
+        print("   1. Assurez-vous que l'API RAG est lancée: make run-api")
+        print("   2. Lancez la collecte des données: make collect-ragas")
+        print("   3. Relancez l'évaluation: make test-ragas")
+        print("=" * 70)
+        sys.exit(1)
+
     print("=" * 70)
 
     return results
@@ -591,10 +539,538 @@ def generate_ragas_report(ragas_data: List[Dict[str, Any]]):
         print("✅ RAPPORT RAGAS TERMINÉ")
         print("=" * 70)
 
+        # Générer le rapport HTML
+        try:
+            generate_html_report(ragas_data, df, scores, metrics)
+        except Exception as html_error:
+            print(f"\n⚠️  Erreur lors de la génération du rapport HTML: {html_error}")
+            import traceback
+            traceback.print_exc()
+
     except Exception as e:
         print(f"\n❌ Erreur lors de la génération du rapport RAGAS: {e}")
         import traceback
         traceback.print_exc()
+
+
+def generate_html_report(
+    ragas_data: List[Dict[str, Any]],
+    df,
+    scores: Dict[str, float],
+    metrics: list,
+    output_path: str = "rapport/ragas/ragas_report.html"
+) -> None:
+    """
+    Génère un rapport HTML des résultats d'évaluation RAGAS.
+
+    Args:
+        ragas_data: Liste des cas de test
+        df: DataFrame avec les résultats détaillés
+        scores: Dictionnaire des scores moyens
+        metrics: Liste des métriques évaluées
+        output_path: Chemin du fichier HTML de sortie
+    """
+    # Créer le répertoire de sortie si nécessaire
+    output_dir = Path(output_path).parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Générer le timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Template HTML
+    html_content = f"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapport d'Évaluation RAGAS</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }}
+
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }}
+
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }}
+
+        .header h1 {{
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }}
+
+        .header .subtitle {{
+            font-size: 1.1em;
+            opacity: 0.9;
+        }}
+
+        .timestamp {{
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            color: #666;
+            font-size: 0.9em;
+        }}
+
+        .content {{
+            padding: 40px;
+        }}
+
+        .section {{
+            margin-bottom: 40px;
+        }}
+
+        .section-title {{
+            font-size: 1.8em;
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }}
+
+        .metrics-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }}
+
+        .metric-card {{
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }}
+
+        .metric-card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }}
+
+        .metric-name {{
+            font-size: 1em;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }}
+
+        .metric-value {{
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }}
+
+        .metric-excellent {{
+            color: #28a745;
+        }}
+
+        .metric-good {{
+            color: #ffc107;
+        }}
+
+        .metric-poor {{
+            color: #dc3545;
+        }}
+
+        .metric-bar {{
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }}
+
+        .metric-bar-fill {{
+            height: 100%;
+            transition: width 0.5s ease;
+        }}
+
+        .bar-excellent {{
+            background: linear-gradient(90deg, #28a745, #20c997);
+        }}
+
+        .bar-good {{
+            background: linear-gradient(90deg, #ffc107, #fd7e14);
+        }}
+
+        .bar-poor {{
+            background: linear-gradient(90deg, #dc3545, #c82333);
+        }}
+
+        .questions-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+
+        .questions-table th {{
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }}
+
+        .questions-table td {{
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }}
+
+        .questions-table tr:hover {{
+            background: #f8f9fa;
+        }}
+
+        .question-text {{
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 5px;
+        }}
+
+        .score-badge {{
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }}
+
+        .badge-excellent {{
+            background: #d4edda;
+            color: #155724;
+        }}
+
+        .badge-good {{
+            background: #fff3cd;
+            color: #856404;
+        }}
+
+        .badge-poor {{
+            background: #f8d7da;
+            color: #721c24;
+        }}
+
+        .interpretation {{
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }}
+
+        .interpretation h3 {{
+            color: #2196F3;
+            margin-bottom: 15px;
+        }}
+
+        .interpretation ul {{
+            list-style: none;
+            padding-left: 0;
+        }}
+
+        .interpretation li {{
+            padding: 10px 0;
+            border-bottom: 1px solid #cce5ff;
+        }}
+
+        .interpretation li:last-child {{
+            border-bottom: none;
+        }}
+
+        .recommendations {{
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }}
+
+        .recommendations h3 {{
+            color: #856404;
+            margin-bottom: 15px;
+        }}
+
+        .recommendations ul {{
+            padding-left: 20px;
+        }}
+
+        .recommendations li {{
+            margin-bottom: 10px;
+        }}
+
+        .success-message {{
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            color: #155724;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-weight: 500;
+        }}
+
+        .footer {{
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }}
+
+        @media print {{
+            body {{
+                background: white;
+                padding: 0;
+            }}
+
+            .container {{
+                box-shadow: none;
+            }}
+
+            .metric-card {{
+                break-inside: avoid;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Rapport d'Évaluation RAGAS</h1>
+            <div class="subtitle">Système RAG - Événements Culturels Occitanie</div>
+        </div>
+
+        <div class="timestamp">
+            Généré le {timestamp}
+        </div>
+
+        <div class="content">
+            <!-- Métriques moyennes -->
+            <div class="section">
+                <h2 class="section-title">📈 Métriques Moyennes</h2>
+                <div class="metrics-grid">
+"""
+
+    # Ajouter les cartes de métriques
+    for metric in metrics:
+        metric_name = metric.name
+        if metric_name in scores:
+            score = scores[metric_name]
+            score_percent = int(score * 100)
+
+            # Déterminer la classe CSS selon le score
+            if score >= 0.8:
+                value_class = "metric-excellent"
+                bar_class = "bar-excellent"
+                badge_class = "badge-excellent"
+                badge_text = "Excellent"
+            elif score >= 0.6:
+                value_class = "metric-good"
+                bar_class = "bar-good"
+                badge_class = "badge-good"
+                badge_text = "Bon"
+            else:
+                value_class = "metric-poor"
+                bar_class = "bar-poor"
+                badge_class = "badge-poor"
+                badge_text = "À améliorer"
+
+            # Nom de métrique formaté
+            metric_display = metric_name.replace("_", " ").title()
+
+            html_content += f"""
+                    <div class="metric-card">
+                        <div class="metric-name">{metric_display}</div>
+                        <div class="metric-value {value_class}">{score:.3f}</div>
+                        <span class="score-badge {badge_class}">{badge_text}</span>
+                        <div class="metric-bar">
+                            <div class="metric-bar-fill {bar_class}" style="width: {score_percent}%"></div>
+                        </div>
+                    </div>
+"""
+
+    html_content += """
+                </div>
+            </div>
+
+            <!-- Scores détaillés par question -->
+            <div class="section">
+                <h2 class="section-title">📋 Scores Détaillés par Question</h2>
+                <table class="questions-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>Question</th>
+"""
+
+    # En-têtes des métriques
+    for metric in metrics:
+        metric_display = metric.name.replace("_", " ").title()
+        html_content += f"                            <th style=\"width: 120px; text-align: center;\">{metric_display}</th>\n"
+
+    html_content += """
+                        </tr>
+                    </thead>
+                    <tbody>
+"""
+
+    # Lignes de résultats
+    if df is not None and len(df) > 0:
+        for idx, row in df.iterrows():
+            question_text = ragas_data[idx]["question"]
+            # Tronquer si nécessaire
+            if len(question_text) > 100:
+                question_text = question_text[:97] + "..."
+
+            html_content += f"""
+                        <tr>
+                            <td style="text-align: center; font-weight: bold;">{idx + 1}</td>
+                            <td><div class="question-text">{question_text}</div></td>
+"""
+
+            # Scores pour chaque métrique
+            for metric in metrics:
+                metric_name = metric.name
+                if metric_name in df.columns:
+                    score = row[metric_name]
+                    score_str = f"{score:.3f}"
+
+                    # Badge selon le score
+                    if score >= 0.8:
+                        badge_class = "badge-excellent"
+                    elif score >= 0.6:
+                        badge_class = "badge-good"
+                    else:
+                        badge_class = "badge-poor"
+
+                    html_content += f"                            <td style=\"text-align: center;\"><span class=\"score-badge {badge_class}\">{score_str}</span></td>\n"
+                else:
+                    html_content += "                            <td style=\"text-align: center;\">N/A</td>\n"
+
+            html_content += "                        </tr>\n"
+
+    html_content += """
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Interprétation -->
+            <div class="section">
+                <h2 class="section-title">💡 Interprétation des Scores</h2>
+                <div class="interpretation">
+                    <h3>📊 Guide de lecture</h3>
+                    <ul>
+                        <li><strong>Faithfulness (Fidélité)</strong> : Mesure si la réponse est fidèle au contexte récupéré. > 0.8 = Excellent | 0.6-0.8 = Bon | < 0.6 = À améliorer</li>
+                        <li><strong>Answer Relevancy (Pertinence)</strong> : Mesure la pertinence de la réponse à la question. > 0.8 = Excellent | 0.6-0.8 = Bon | < 0.6 = À améliorer</li>
+                        <li><strong>Context Precision (Précision du contexte)</strong> : Mesure la précision du contexte récupéré. > 0.8 = Excellent | 0.6-0.8 = Bon | < 0.6 = À améliorer</li>
+                        <li><strong>Context Recall (Rappel du contexte)</strong> : Mesure la complétude du contexte récupéré. > 0.8 = Excellent | 0.6-0.8 = Bon | < 0.6 = À améliorer</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Recommandations -->
+            <div class="section">
+                <h2 class="section-title">🎯 Recommandations</h2>
+"""
+
+    # Générer les recommandations basées sur les scores
+    has_recommendations = False
+
+    if scores.get("faithfulness", 0) < 0.7:
+        has_recommendations = True
+        html_content += """
+                <div class="recommendations">
+                    <h3>⚠️  Faithfulness faible</h3>
+                    <ul>
+                        <li>Vérifiez que les réponses restent fidèles au contexte</li>
+                        <li>Ajustez le prompt système pour éviter les hallucinations</li>
+                    </ul>
+                </div>
+"""
+
+    if scores.get("answer_relevancy", 0) < 0.7:
+        has_recommendations = True
+        html_content += """
+                <div class="recommendations">
+                    <h3>⚠️  Answer Relevancy faible</h3>
+                    <ul>
+                        <li>Vérifiez que les réponses adressent bien la question</li>
+                        <li>Améliorez la qualité du prompt d'enrichissement</li>
+                    </ul>
+                </div>
+"""
+
+    if scores.get("context_precision", 0) < 0.7:
+        has_recommendations = True
+        html_content += """
+                <div class="recommendations">
+                    <h3>⚠️  Context Precision faible</h3>
+                    <ul>
+                        <li>Améliorez la qualité des embeddings (modèle, chunking)</li>
+                        <li>Ajustez les paramètres de recherche (top_k, seuil)</li>
+                    </ul>
+                </div>
+"""
+
+    if scores.get("context_recall", 0) < 0.7:
+        has_recommendations = True
+        html_content += """
+                <div class="recommendations">
+                    <h3>⚠️  Context Recall faible</h3>
+                    <ul>
+                        <li>Augmentez le nombre de contextes récupérés (top_k)</li>
+                        <li>Vérifiez la complétude de votre base de données</li>
+                    </ul>
+                </div>
+"""
+
+    if not has_recommendations:
+        html_content += """
+                <div class="success-message">
+                    ✅ Tous les scores sont satisfaisants ! Votre système RAG fonctionne correctement.
+                </div>
+"""
+
+    html_content += """
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Rapport généré automatiquement par le système d'évaluation RAGAS</p>
+            <p>Projet OpenClassrooms - Événements Culturels Occitanie</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    # Écrire le fichier HTML
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+
+    print(f"\n📄 Rapport HTML généré: {output_path}")
 
 
 # ============================================================================
@@ -611,19 +1087,19 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Exemples:
-  # Utiliser le fichier par défaut (ragas_test_questions_collected.json)
+  # Utiliser le fichier par défaut (ragas_data/ragas_test_questions_collected.json)
   python tests/evaluate_ragas.py
 
   # Utiliser un fichier spécifique
-  python tests/evaluate_ragas.py tests/ragas_test_questions_collected.json
-  python tests/evaluate_ragas.py tests/my_custom_questions.json
+  python tests/evaluate_ragas.py tests/ragas_data/ragas_test_questions_collected.json
+  python tests/evaluate_ragas.py tests/ragas_data/my_custom_questions.json
         """
     )
     parser.add_argument(
         "questions_file",
         nargs="?",
         default=None,
-        help="Chemin vers le fichier de questions JSON (défaut: ragas_test_questions_collected.json)"
+        help="Chemin vers le fichier de questions JSON (défaut: ragas_data/ragas_test_questions_collected.json)"
     )
 
     args = parser.parse_args()
@@ -654,7 +1130,7 @@ Exemples:
         sys.exit(1)
 
     # Collecter les données
-    ragas_data = collect_rag_data(test_questions)
+    ragas_data = validate_ragas_data(test_questions)
 
     # Générer le rapport
     if ragas_data:

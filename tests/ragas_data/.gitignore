@@ -1,0 +1,2 @@
+# Ignore collected data file (generated, not source)
+ragas_test_questions_collected.json

@@ -336,37 +336,112 @@ Latence (Temps de Réponse) : S'assurer que le système complet (API + RAG) offr
 - **Makefile** : Commandes standardisées (`make install`, `make run-all`, etc.)
 
 
-3. Préparation et vectorisation des données
-Source de données : API Open Agenda (paramètres utilisés, filtres appliqués)
-Nettoyage : Exemples d’anomalies corrigées, méthodes utilisées
-Chunking : Raison du découpage, taille choisie
-Embedding :
-Modèle utilisé (ex. : Mistral embedding API)
-Dimensionnalité, logique de batch, format des vecteurs
+### Préparation et vectorisation des données
+#### Source de données : API Open Agenda (paramètres utilisés, filtres appliqués)
+- **Endpoints** : `/agendas` pour lister les agendas officiels, puis `/agendas/{uid}/events` pour récupérer les événements.
+- **Paramètres clés** : `official: 1` pour ne retenir que les sources fiables, `search: Occitanie` pour le ciblage géographique.
+- **Filtres temporels** : Le pipeline de mise à jour incrémentale (`update`) filtre les agendas et événements sur la base de la date de la dernière exécution (`createdAt >= date` ou `updatedAt >= date`), assurant une collecte efficace des nouveautés.
 
-4. Choix du modèle NLP
-Modèle sélectionné :
-Pourquoi ce modèle ? (Critères : coût, qualité, compatibilité LangChain…)
-Prompting (si utilisé) : Prompt de base / structure
-Limites du modèle : 
+#### Nettoyage : Exemples d’anomalies corrigées, méthodes utilisées
+- **Anomalie corrigée** : Présence d'événements en double, identifiés par un `uid` identique mais des `_id` MongoDB différents.
+- **Méthode utilisée** : Le script `src/corpus/deduplicate_events.py` est exécuté après la collecte. Pour chaque `uid` dupliqué, il conserve uniquement l'événement le plus récent en se basant sur le champ `updatedAt` et supprime les autres.
 
-5. Construction de la base vectorielle
-Faiss utilisé :
-Stratégie de persistance : 
-Format de sauvegarde ?
-nommage ?
-Métadonnées associées : 
-Ce qui est conservé pour chaque document
+#### Chunking : Raison du découpage, taille choisie
+- **Outil** : `RecursiveCharacterTextSplitter` de LangChain.
+- **Taille choisie** : **500 caractères** (`CHUNK_SIZE`) avec un chevauchement de **100 caractères** (`CHUNK_OVERLAP`).
+- **Raison du découpage** : Cette configuration offre un équilibre optimal. Les chunks sont assez petits pour que la recherche sémantique soit très précise, mais assez grands pour conserver un contexte sémantique suffisant. Le chevauchement empêche de couper des phrases ou des idées importantes entre deux chunks.
 
-6. API et endpoints exposés
-Framework utilisé : FastAPI / Flask
-Endpoints clés :
-/ask : question utilisateur, réponse du système
-/rebuild : reconstruction de l’index (si besoin)
-Format des requêtes/réponses
-Exemple d’appel API : avec curl ou code Python
-Tests effectués et documentés
-Gestion des erreurs / limitations
+#### Embedding :
+##### Modèle utilisé (ex. : Mistral embedding API)
+- **Modèle** : `intfloat/multilingual-e5-large`, un modèle de pointe exécuté localement via la bibliothèque HuggingFace Transformers.
+- **Justification** : Ce choix a été fait pour ses excellentes performances sur les tâches de *retrieval* en français, sa capacité à s'exécuter localement (pas de dépendance à une API externe, pas de coût par token) et sa dimensionnalité élevée.
+
+##### Dimensionnalité, logique de batch, format des vecteurs
+- **Dimensionnalité** : **1024 dimensions**, ce qui permet une représentation sémantique très riche.
+- **Logique de batch** : La vectorisation est effectuée par lots (taille de 32 par défaut) pour optimiser l'utilisation des ressources matérielles (CPU/GPU/MPS) et accélérer le traitement.
+- **Format des vecteurs** : Les vecteurs sont des flottants normalisés (L2), ce qui est idéal pour les calculs de similarité cosinus. Le modèle utilise des préfixes spécifiques (`"passage:"` pour les documents, `"query:"` pour les requêtes) afin d'améliorer la pertinence de la recherche.
+
+### Choix du modèle NLP
+##### Modèle sélectionné :
+- **Fournisseur** : Mistral AI
+- **Modèle** : `mistral-small-latest` (configurable via la variable d'environnement `MISTRAL_MODEL`)
+
+##### Pourquoi ce modèle ? (Critères : coût, qualité, compatibilité LangChain…)
+- **Qualité sur le français** : Les modèles Mistral sont reconnus pour leur excellente performance et leur compréhension nuancée de la langue française.
+- **Rapport performance/coût** : `mistral-small-latest` offre un excellent équilibre entre une latence faible, une haute qualité de génération et un coût par token maîtrisé, ce qui est idéal pour un POC.
+- **Compatibilité LangChain** : Le modèle est nativement supporté via le package `langchain-mistralai`, permettant une intégration simple et rapide dans l'architecture RAG.
+
+##### Prompting (si utilisé) : Prompt de base / structure
+- **Prompt Système** : Un prompt système détaillé, stocké dans `src/chat/ps.md`, définit la personnalité du chatbot ("Puls-Events"). Il lui donne des instructions strictes : répondre uniquement sur la base du contexte fourni, se limiter à la région Occitanie, et adopter un ton convivial et précis.
+- **Structure du prompt enrichi** : La requête finale envoyée à Mistral est structurée en deux parties :
+    1.  `SystemMessage` : Contient les instructions de `ps.md`.
+    2.  `UserMessage` : Contient un prompt enrichi qui combine :
+        - Le contexte récupéré depuis la base vectorielle (les événements pertinents).
+        - La question originale de l'utilisateur.
+        - Une instruction finale demandant de baser la réponse sur le contexte.
+
+##### Limites du modèle :
+- **Dépendance à une API externe** : Contrairement au modèle d'embedding, l'utilisation de Mistral AI nécessite une connexion internet et une clé API valide, ce qui engendre un coût par utilisation (basé sur les tokens).
+- **Fenêtre de contexte** : Le modèle a une taille de contexte limitée. Le nombre de documents injectés dans le prompt (`RAG_TOP_K`) doit être contrôlé pour ne pas dépasser cette limite et pour maîtriser les coûts.
+
+### Construction de la base vectorielle
+##### Faiss utilisé :
+- **Bibliothèque** : **FAISS** (Facebook AI Similarity Search), une bibliothèque hautement optimisée pour la recherche de similarité sur de grands volumes de vecteurs.
+- **Intégration** : Le projet utilise le wrapper `FAISS` fourni par `langchain-community`, ce qui simplifie la création, la sauvegarde, le chargement et l'interrogation de l'index.
+
+##### Stratégie de persistance :
+- **Format de sauvegarde** : L'index est sauvegardé sur le disque dans le répertoire `data/faiss_index/` (configurable via `FAISS_INDEX_PATH`). Il se compose de deux fichiers :
+    - `index.faiss` : Contient les vecteurs numériques dans un format binaire optimisé par FAISS.
+    - `index.pkl` : Un fichier pickle contenant le mapping entre les index des vecteurs et les métadonnées des documents (`docstore`).
+
+##### Métadonnées associées :
+- Chaque chunk vectorisé conserve un ensemble riche de métadonnées extraites de l'événement original. Ces métadonnées sont cruciales pour filtrer, afficher et contextualiser les résultats de recherche.
+- **Champs conservés** : `event_id`, `title`, `city`, `date_debut`, `date_fin`, `location` (coordonnées GPS), `region`, `keywords`.
+
+### API et endpoints exposés
+##### Framework utilisé : FastAPI
+- L'API est développée avec **FastAPI**, un framework Python moderne et performant, et servie par **Uvicorn**, un serveur ASGI. Ce choix garantit des temps de réponse rapides et une scalabilité aisée.
+
+##### Endpoints clés :
+- **`POST /ask`** : Le cœur du système RAG. Prend une question en JSON, effectue une recherche sémantique pour trouver des contextes pertinents, enrichit un prompt et interroge le LLM (Mistral) pour générer une réponse factuelle.
+- **`POST /search`** : Endpoint de recherche sémantique pure. Il retourne les `k` documents les plus pertinents de la base vectorielle avec leurs scores de similarité, sans passer par le LLM.
+- **`POST /rebuild`** : Déclenche le pipeline de mise à jour incrémentale de l'index en arrière-plan. Il est non-bloquant et vérifie au préalable si de nouveaux événements justifient une mise à jour.
+- **`GET /rebuild/status`** : Permet de suivre l'état d'avancement du pipeline de reconstruction (ex: `running`, `success`, `error`).
+- **`GET /health`** et **`GET /stats`** : Endpoints de monitoring pour vérifier l'état de santé de l'API et les statistiques de l'index (nombre de vecteurs, etc.).
+
+##### Format des requêtes/réponses
+- Les formats sont validés par des modèles **Pydantic** pour assurer la robustesse.
+- **Requête `/ask`** : `{"question": "...", "k": 5}`
+- **Réponse `/ask`** :
+  ```json
+  {
+    "question": "...",
+    "answer": "...",
+    "context_used": [ { "score": 0.8, "title": "...", ... } ],
+    "tokens_used": { "prompt_tokens": ..., "total_tokens": ... }
+  }
+  ```
+
+##### Exemple d’appel API : avec curl
+- **Pour poser une question au RAG :**
+  ```bash
+  curl -X POST http://localhost:8000/ask \
+    -H "Content-Type: application/json" \
+    -d '{"question": "Quels sont les festivals de jazz en Occitanie ?", "k": 5}'
+  ```
+- **Pour lancer une reconstruction de l'index :**
+  ```bash
+  curl -X POST http://localhost:8000/rebuild
+  ```
+
+##### Tests effectués et documentés
+- Le projet inclut une suite de tests unitaires complète utilisant **Pytest** et **HTTPX**.
+- Les dépendances externes (FAISS, Mistral) sont **mockées** pour isoler les tests de l'API.
+- Des tests d'évaluation de la qualité du RAG sont également implémentés avec **RAGAS** (`make test-ragas`) pour mesurer la pertinence et la fidélité des réponses.
+
+##### Gestion des erreurs / limitations
+- L'API utilise les `HTTPException` de FastAPI pour retourner des codes d'erreur standards (422 pour une requête invalide, 503 si un service est indisponible, 500 pour une erreur interne).
+- L'endpoint `/rebuild` est protégé contre les exécutions concurrentes.
 
 7. Évaluation du système
 Jeu de test annoté :

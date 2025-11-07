@@ -1,7 +1,7 @@
 """
 Script utilitaire pour pré-collecter les données answer et contexts.
 
-Ce script lit ragas_test_questions.json, interroge l'API RAG pour chaque
+Ce script lit ragas_data/ragas_test_questions.json, interroge l'API RAG pour chaque
 question, et génère un nouveau fichier JSON avec les réponses et contextes
 pré-collectés. Cela permet d'éviter de réinterroger l'API lors de chaque
 évaluation RAGAS.
@@ -9,7 +9,7 @@ pré-collectés. Cela permet d'éviter de réinterroger l'API lors de chaque
 Usage:
     python tests/collect_ragas_data.py
 
-Le fichier de sortie sera sauvegardé dans tests/ragas_test_questions_collected.json
+Le fichier de sortie sera sauvegardé dans tests/ragas_data/ragas_test_questions_collected.json
 """
 
 import os
@@ -158,17 +158,45 @@ def format_contexts(context_used: list) -> list:
     """
     Formate les contextes pour RAGAS (liste de strings).
 
-    Utilise le contenu de l'événement pour l'évaluation RAGAS.
-    Cela permet à RAGAS d'évaluer la pertinence basée sur le contenu
-    textuel complet des événements récupérés.
+    Utilise format_rag_context de mistral.py pour générer les contextes
+    dans le même format que celui utilisé par le chatbot. Cela garantit
+    que RAGAS évalue exactement ce que le LLM reçoit comme contexte.
 
     Args:
         context_used: Liste des contextes retournés par l'API RAG
 
     Returns:
-        Liste de contenus d'événements (strings)
+        Liste de contenus d'événements formatés (strings)
     """
-    return [ctx.get("content", "") for ctx in context_used]
+    # Pour chaque contexte, créer une entrée formatée individuellement
+    # afin de maintenir la granularité pour RAGAS (une entrée par contexte)
+    formatted_contexts = []
+
+    for i, ctx in enumerate(context_used, 1):
+        # Créer un format similaire à format_rag_context mais pour un seul résultat
+        title = ctx.get("title", "Sans titre")
+        content = ctx.get("content", "")
+        score = ctx.get("score", 0)
+        metadata = ctx.get("metadata", {})
+
+        # Limiter la longueur du contenu
+        content_preview = content[:500] + "..." if len(content) > 500 else content
+
+        parts = [f"--- Résultat {i} (pertinence: {score:.3f}) ---"]
+        parts.append(f"Titre: {title}")
+
+        if metadata.get("city"):
+            parts.append(f"Ville: {metadata['city']}")
+        if metadata.get("date_debut"):
+            parts.append(f"Date début: {metadata['date_debut']}")
+        if metadata.get("date_fin"):
+            parts.append(f"Date fin: {metadata['date_fin']}")
+
+        parts.append(f"\nContenu:\n{content_preview}")
+
+        formatted_contexts.append("\n".join(parts))
+
+    return formatted_contexts
 
 
 def generate_ground_truth(context_used: list, category: str) -> str:
@@ -227,7 +255,7 @@ def main():
     print("✅ API RAG accessible\n")
 
     # Charger le fichier JSON
-    input_path = Path(__file__).parent / "ragas_test_questions.json"
+    input_path = Path(__file__).parent / "ragas_data" / "ragas_test_questions.json"
     if not input_path.exists():
         print(f"❌ Fichier non trouvé: {input_path}")
         sys.exit(1)
@@ -351,9 +379,11 @@ def main():
     data["metadata"]["failed_count"] = failed
 
     # Sauvegarder
-    output_path = Path(__file__).parent / "ragas_test_questions_collected.json"
+    output_path = (
+        Path(__file__).parent / "ragas_data" / "ragas_test_questions_collected.json"
+    )
 
-    print(f"💾 Sauvegarde dans: {output_path.name}")
+    print(f"💾 Sauvegarde dans: ragas_data/{output_path.name}")
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)

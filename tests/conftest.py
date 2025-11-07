@@ -6,6 +6,7 @@ pour permettre l'import des modules depuis src/.
 """
 
 import sys
+import logging
 from pathlib import Path
 
 # Ajouter le répertoire src/ au PYTHONPATH
@@ -14,3 +15,6 @@ project_root = tests_dir.parent
 src_dir = project_root / "src"
 
 sys.path.insert(0, str(src_dir))
+
+# Configuration du logging pour conftest
+logger = logging.getLogger(__name__)

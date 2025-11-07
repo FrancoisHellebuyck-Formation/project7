@@ -16,7 +16,7 @@
       "question": "Y a-t-il des marchés de noel en Occitanie cette année ?",
       "answer": null,
       "contexts": null,
-      "ground_truth": "Bien sûr ! Voici les marchés de Noël qui auront lieu en Occitanie cette année, d'après les informations disponibles :\n\n1. **Marché de Noël en nocturne**\n   - **Lieu :** Noueilles (Haute-Garonne)\n   - **Date :** Jeudi 4 décembre 2025, de 17h00 à 21h00\n   - **Description :** Vin chaud offert aux visiteurs.\n   - **Lieu précis :** Place du village, Noueilles\n\n2. **Marché de Noël**\n   - **Lieu :** La Vernarède (Gard)\n   - **Date :** Samedi 8 novembre 2025, de 10h00 à 18h00\n   - **Description :** Stands d’artisans et créateurs, chants de Noël, visite du Grinch et du Père Noël, animations pour les enfants.\n   - **Lieu précis :** La Vernarède\n\n3. **Marché de Noël**\n   - **Lieu :** Monteils (Gard)\n   - **Date :** Samedi 29 novembre 2025, de 15h00 à 23h00\n   - **Description :** Organisé par le Comité des fêtes. Créateurs et artisans seront présents.\n   - **Lieu précis :** Village, Monteils\n\nCes marchés de Noël promettent des moments festifs et conviviaux en Occitanie.",
+      "ground_truth": "Bien sûr ! Voici les marchés de Noël que j'ai trouvés en Occitanie cette année :\n\n- **Marché de Noël en nocturne**\n  - **Lieu :** Noueilles (Haute-Garonne)\n  - **Date :** Jeudi 4 décembre 2025, de 17h00 à 21h00\n  - **Description :** Vin chaud offert aux visiteurs.\n  - **Lieu précis :** Place du village, Noueilles\n\n- **Marché de Noël**\n  - **Lieu :** Flourens (Haute-Garonne)\n  - **Date :** Dimanche 7 décembre 2025, de 10h00 à 18h00\n  - **Description :** Artisanat d'art, spécialités de Noël, animations pour les enfants, restauration sur place.\n  - **Lieu précis :** Salle des fêtes de Flourens, 2-3 Rue de l'Eglise, 31130 Flourens\n\n- **Foire au Gras et aux Volailles Festives**\n  - **Lieu :** Thuir (Pyrénées-Orientales)\n  - **Date :** Dimanche 7 décembre 2025, de 8h00 à 17h00\n  - **Description :** Marché des producteurs de pays, spécialités festives.\n  - **Lieu précis :** Non précisé dans les sources\n\nCes événements devraient vous offrir une belle immersion dans l'ambiance de Noël en Occitanie !",
       "notes": ""
     },
     {
@@ -76,7 +76,7 @@
       "question": "Quand a lieu la fête du kiwi ?",
       "answer": null,
       "contexts": null,
-      "ground_truth": "Le **samedi 31 janvier 2026** de **16h30 à 22h30**",
+      "ground_truth": "La **Fête du Kiwi** se déroulera à **Ramonville-Saint-Agne** le **samedi 31 janvier 2026** de **16h30 à 22h30**.",
       "notes": ""
     },
     {
@@ -86,7 +86,7 @@
       "question": "Que propose le bal trad de la fête du kiwi ?",
       "answer": null,
       "contexts": null,
-      "ground_truth": "**Un spectacle** suivi d'un **bal traditionnel** (bal trad).",
+      "ground_truth": "D'après les informations disponibles, le **Bal Trad** dans le cadre de la **Fête du Kiwi** à Ramonville-Saint-Agne propose un spectacle suivi d'un bal traditionnel. Voici les détails :\n\n- **Nom de l'événement :** LE BAL TRAD S’INVITE AU KIWI !\n- **Lieu :** Ramonville-Saint-Agne (Haute-Garonne, Occitanie)\n- **Date :** Vendredi 30 janvier 2026, à partir de 19h00\n- **Description :** Spectacle + bal traditionnel\n- **Conditions :** 5 € (spectacle + bal trad)",
       "notes": ""
     },
     {
@@ -96,7 +96,7 @@
       "question": "Peux-tu me donner une recette de cuisine avec du kiwi ?",
       "answer": null,
       "contexts": null,
-      "ground_truth": "Je suis désolé, mais je ne peux pas vous fournir de recette de cuisine avec du kiwi, car les informations disponibles ne contiennent pas de détails culinaires. Cependant, je peux vous parler d'événements culturels en Occitanie liés au kiwi !",
+      "ground_truth": "Je suis désolé, mais je ne peux pas vous fournir de recette de cuisine avec du kiwi, car ma base de connaissances ne contient pas d'informations culinaires. Je suis spécialisé dans les événements culturels en Occitanie. Cependant, je peux vous parler d'événements qui se déroulent au **Kiwi**, un lieu culturel à Ramonville-Saint-Agne (Haute-Garonne, Occitanie).",
       "notes": ""
     }
   ]

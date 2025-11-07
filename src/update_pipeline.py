@@ -6,8 +6,9 @@ Ce module orchestre la mise à jour incrémentale complète :
 2. Récupération des agendas mis à jour depuis cette date
 3. Récupération des événements pour ces agendas
 4. Dédoublonnement des événements
-5. Chunking des documents
-6. Génération des embeddings et mise à jour FAISS
+5. Nettoyage des événements (description insuffisante)
+6. Chunking des documents
+7. Génération des embeddings et mise à jour FAISS
 
 Mode UPDATE : Traite uniquement les nouveaux/modifiés depuis la dernière exécution
 """
@@ -123,12 +124,13 @@ def main():
     logger.info("  3. Récupérer les agendas mis à jour depuis cette date")
     logger.info("  4. Récupérer les événements pour ces agendas")
     logger.info("  5. Dédoublonner les événements")
-    logger.info("  6. Chunker les documents")
-    logger.info("  7. Générer les embeddings et mettre à jour FAISS")
+    logger.info("  6. Nettoyer les événements (description insuffisante)")
+    logger.info("  7. Chunker les documents")
+    logger.info("  8. Générer les embeddings et mettre à jour FAISS")
     logger.info("=" * 70 + "\n")
 
     # Étape 1 : Récupérer la date de dernière exécution
-    logger.info("[1/7] Récupération de la date de dernière exécution...")
+    logger.info("[1/8] Récupération de la date de dernière exécution...")
     last_execution_date = get_last_execution_date()
 
     if not last_execution_date:
@@ -155,7 +157,7 @@ def main():
     )
 
     # Étape 2 : Backup et vidage des collections agendas/events
-    logger.info("\n[2/7] Sauvegarde et vidage des collections...")
+    logger.info("\n[2/8] Sauvegarde et vidage des collections...")
     try:
         from corpus.cleanup_mongodb import backup_and_clear_for_update
 
@@ -168,7 +170,7 @@ def main():
     # Étape 3 : Récupération des agendas
     if not run_command(
         ["uv", "run", "python", "src/corpus/get_corpus_agendas.py"],
-        "[3/7] Récupération des agendas mis à jour",
+        "[3/8] Récupération des agendas mis à jour",
     ):
         logger.error("❌ Échec de la récupération des agendas")
         sys.exit(1)
@@ -176,7 +178,7 @@ def main():
     # Étape 4 : Récupération des événements
     if not run_command(
         ["uv", "run", "python", "src/corpus/get_corpus_events.py"],
-        "[4/7] Récupération des événements",
+        "[4/8] Récupération des événements",
     ):
         logger.error("❌ Échec de la récupération des événements")
         sys.exit(1)
@@ -184,17 +186,25 @@ def main():
     # Étape 5 : Dédoublonnement
     if not run_command(
         ["uv", "run", "python", "src/corpus/deduplicate_events.py"],
-        "[5/7] Dédoublonnement des événements",
+        "[5/8] Dédoublonnement des événements",
     ):
         logger.error("❌ Échec du dédoublonnement")
         sys.exit(1)
 
-    # Étape 6 : Chunking (pas de script séparé, intégré dans pipeline.py)
+    # Étape 6 : Nettoyage des événements
+    if not run_command(
+        ["uv", "run", "python", "src/corpus/clean_events.py"],
+        "[6/8] Nettoyage des événements (description < 100 caractères)",
+    ):
+        logger.error("❌ Échec du nettoyage des événements")
+        sys.exit(1)
+
+    # Étape 7 : Chunking (pas de script séparé, intégré dans pipeline.py)
     logger.info("=" * 70)
-    logger.info("[6/7] Chunking des documents (intégré dans étape 7)")
+    logger.info("[7/8] Chunking des documents (intégré dans étape 8)")
     logger.info("=" * 70)
 
-    # Étape 7 : Génération des embeddings (mode update)
+    # Étape 8 : Génération des embeddings (mode update)
     # Le pipeline.py en mode update va :
     # - Charger les documents depuis MongoDB
     # - Créer les chunks
@@ -202,7 +212,7 @@ def main():
     # - Créer le nouvel index avec tous les documents
     if not run_command(
         ["uv", "run", "python", "src/pipeline.py", "update"],
-        "[7/7] Génération des embeddings et mise à jour FAISS",
+        "[8/8] Génération des embeddings et mise à jour FAISS",
     ):
         logger.error("❌ Échec de la génération des embeddings")
         sys.exit(1)
