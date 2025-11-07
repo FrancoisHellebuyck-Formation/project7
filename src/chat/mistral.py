@@ -6,8 +6,7 @@ from dotenv import load_dotenv
 
 # Configuration du logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,8 @@ client = Mistral(api_key=api_key)
 
 # Définition du modèle à utiliser
 # Modèles courants : 'mistral-small-latest', 'mistral-large-latest', 'open-mixtral-8x7b'
-MODEL_NAME = "mistral-small-latest"
+MODEL_NAME = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
+MISTRAL_TEMPERATURE = float(os.getenv("MISTRAL_TEMPERATURE", "0.7"))
 
 # Configuration de l'API RAG
 RAG_API_URL = os.getenv("RAG_API_URL", "http://localhost:8000")
@@ -53,10 +53,8 @@ def search_rag(query: str, k: int = RAG_TOP_K) -> list:
     try:
         logger.info(f"Recherche RAG pour: '{query}' (k={k})")
 
-        response = requests.get(
-            RAG_API_SEARCH_ENDPOINT,
-            params={"q": query, "k": k},
-            timeout=10
+        response = requests.post(
+            RAG_API_SEARCH_ENDPOINT, json={"query": query, "k": k}, timeout=10
         )
         response.raise_for_status()
 
@@ -84,7 +82,9 @@ def format_rag_context(results: list) -> str:
     if not results:
         return "Aucune information contextuelle trouvée."
 
-    context_parts = ["Voici les informations pertinentes trouvées dans la base de données:\n"]
+    context_parts = [
+        "Voici les informations pertinentes trouvées dans la base de données:\n"
+    ]
 
     for i, result in enumerate(results, 1):
         title = result.get("title", "Sans titre")
@@ -140,7 +140,9 @@ systemMessage_content = get_system_prompt(
 )
 
 # Question de l'utilisateur
-user_question = "Quel est le festival de musique le plus célèbre de la région Occitanie en été ?"
+user_question = (
+    "Quel est le festival de musique le plus célèbre de la région Occitanie en été ?"
+)
 
 # --- 4. Enrichissement avec RAG ---
 
@@ -187,7 +189,11 @@ logger.info(f"\n💬 Requête envoyée au modèle : {MODEL_NAME}...")
 
 try:
     # Appel de la méthode de complétion de chat
-    response = client.chat.complete(model=MODEL_NAME, messages=messages)
+    response = client.chat.complete(
+        model=MODEL_NAME,
+        messages=messages,
+        temperature=MISTRAL_TEMPERATURE
+    )
 
     # --- 6. Affichage du Résultat ---
 
