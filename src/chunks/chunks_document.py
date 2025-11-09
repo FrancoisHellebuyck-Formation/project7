@@ -62,12 +62,17 @@ def format_event_content(doc: Dict[str, Any]) -> str:
     content_parts.append(f"Date: {doc.get('dateRange', '')}")
     content_parts.append(f"Conditions: {doc.get('conditions', '')}")
 
-    # Description
-    if doc.get("description"):
-        content_parts.append(f"\nDescription: {doc['description']}")
+    # Description - Choisir la plus longue entre description et longDescription
+    description = doc.get("description", "")
+    long_description = doc.get("longDescription", "")
 
-    if doc.get("longDescription"):
-        content_parts.append(f"\nDescription détaillée: {doc['longDescription']}")
+    # Utiliser celle qui contient le plus de caractères
+    if len(long_description) >= len(description):
+        if long_description:
+            content_parts.append(f"\nDescription: {long_description}")
+    else:
+        if description:
+            content_parts.append(f"\nDescription: {description}")
 
     # Localisation
     location = doc.get("location", {})

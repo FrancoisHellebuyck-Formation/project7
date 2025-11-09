@@ -94,7 +94,12 @@ deduplicate-events: ## Dédoublonne la collection MongoDB events (basé sur uid)
 	$(UV) run $(PYTHON) $(SRC_DIR)/corpus/deduplicate_events.py
 	@echo "$(GREEN)✓ Dédoublonnement terminé$(NC)"
 
-run-all: cleanup-mongodb run-agendas run-events deduplicate-events run-chunks run-embeddings ## Lance le pipeline complet (cleanup → agendas → événements → dédoublonnement → chunks → embeddings)
+clean-events: ## Nettoie les événements avec description insuffisante (<100 caractères)
+	@echo "$(GREEN)🧹 Nettoyage des événements avec description courte...$(NC)"
+	$(UV) run $(PYTHON) $(SRC_DIR)/corpus/clean_events.py
+	@echo "$(GREEN)✓ Nettoyage des événements terminé$(NC)"
+
+run-all: cleanup-mongodb run-agendas run-events deduplicate-events clean-events run-chunks run-embeddings ## Lance le pipeline complet (cleanup → agendas → événements → dédoublonnement → nettoyage → chunks → embeddings)
 	@echo "$(GREEN)✓ Pipeline complet terminé avec succès !$(NC)"
 
 lint: ## Vérifie le code avec flake8
@@ -106,9 +111,23 @@ format: ## Formate le code (à implémenter avec black)
 	@echo "$(YELLOW)✨ Formatage du code...$(NC)"
 	@echo "$(RED)⚠️  Black non configuré. Ajoutez-le au pyproject.toml$(NC)"
 
-test: ## Lance les tests (à implémenter)
-	@echo "$(YELLOW)🧪 Lancement des tests...$(NC)"
-	@echo "$(RED)⚠️  Tests non encore implémentés$(NC)"
+test: ## Lance les tests unitaires avec pytest
+	@echo "$(YELLOW)🧪 Lancement des tests unitaires...$(NC)"
+	$(UV) run pytest tests/ -v
+	@echo "$(GREEN)✓ Tests terminés$(NC)"
+
+test-cov: ## Lance les tests avec rapport de couverture
+	@echo "$(YELLOW)🧪 Lancement des tests avec couverture...$(NC)"
+	$(UV) run pytest tests/ -v --cov=src --cov-report=term-missing
+	@echo "$(GREEN)✓ Tests et couverture terminés$(NC)"
+
+collect-ragas: ## Collecte les données (answer/contexts) via l'API /ask
+	@echo "$(BLUE)📦 Collecte des données RAGAS via /ask...$(NC)"
+	@$(UV) run python tests/collect_ragas_data.py
+	@echo "$(GREEN)✓ Données collectées dans ragas_test_questions_collected.json$(NC)"
+
+test-ragas: ## Lance l'évaluation RAGAS du système RAG
+	@$(UV) run python tests/evaluate_ragas.py
 
 docker-up: ## Démarre MongoDB avec Docker Compose
 	@echo "$(GREEN)🐳 Démarrage de MongoDB...$(NC)"
@@ -131,6 +150,18 @@ clean: ## Nettoie les fichiers temporaires
 	find . -type f -name "*.pyo" -delete 2>/dev/null || true
 	find . -type f -name ".DS_Store" -delete 2>/dev/null || true
 	@echo "$(GREEN)✓ Nettoyage terminé$(NC)"
+
+clean-backups: ## Supprime les collections backup MongoDB (interactif)
+	@echo "$(YELLOW)🧹 Nettoyage des collections backup MongoDB...$(NC)"
+	$(UV) run $(PYTHON) $(SRC_DIR)/utils/clean_backups.py
+
+clean-backups-dry-run: ## Affiche les collections backup sans les supprimer
+	@echo "$(BLUE)🔍 Liste des collections backup MongoDB...$(NC)"
+	$(UV) run $(PYTHON) $(SRC_DIR)/utils/clean_backups.py --dry-run
+
+clean-backups-force: ## Supprime les collections backup MongoDB sans confirmation
+	@echo "$(RED)⚠️  Suppression forcée des collections backup MongoDB...$(NC)"
+	$(UV) run $(PYTHON) $(SRC_DIR)/utils/clean_backups.py --force
 
 env-check: ## Vérifie que les variables d'environnement sont configurées
 	@echo "$(BLUE)🔐 Vérification des variables d'environnement...$(NC)"

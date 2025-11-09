@@ -8,6 +8,7 @@ en utilisant le vector store FAISS pré-calculé.
 import logging
 import os
 import asyncio
+import sys
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -30,8 +31,7 @@ from api.models import (
 
 # Configuration du logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,7 @@ EMBEDDINGS_DEVICE = os.getenv("EMBEDDINGS_DEVICE") or None
 # Configuration Mistral AI
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
+MISTRAL_TEMPERATURE = float(os.getenv("MISTRAL_TEMPERATURE", "0.7"))
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 
 # Initialisation de l'application FastAPI
@@ -85,7 +86,7 @@ rebuild_status = {
     "status": "idle",
     "message": "Aucun rebuild en cours",
     "started_at": None,
-    "last_update_date": None
+    "last_update_date": None,
 }
 
 
@@ -128,16 +129,14 @@ async def startup_event():
         # Chargement du modèle d'embeddings
         logger.info("Chargement du modèle d'embeddings...")
         embeddings_model = get_embeddings_model(
-            model_id=EMBEDDINGS_MODEL,
-            device=EMBEDDINGS_DEVICE
+            model_id=EMBEDDINGS_MODEL, device=EMBEDDINGS_DEVICE
         )
         logger.info("✓ Modèle d'embeddings chargé")
 
         # Chargement du vector store
         logger.info(f"Chargement du vector store depuis: {FAISS_INDEX_PATH}")
         vector_store = load_vector_store(
-            load_path=FAISS_INDEX_PATH,
-            embeddings=embeddings_model
+            load_path=FAISS_INDEX_PATH, embeddings=embeddings_model
         )
 
         # Affichage des statistiques
@@ -156,14 +155,14 @@ async def startup_event():
             # Le fichier ps.md est dans src/chat/, et ce fichier est src/api/main.py
             # Donc on remonte d'un niveau puis on va dans chat/
             prompt_file_path = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)),
-                "chat",
-                "ps.md"
+                os.path.dirname(os.path.dirname(__file__)), "chat", "ps.md"
             )
             logger.info(f"Chargement du prompt système depuis: {prompt_file_path}")
             default_system_prompt = load_system_prompt(prompt_file_path)
         else:
-            logger.warning("⚠️  MISTRAL_API_KEY non configurée - endpoint /ask désactivé")
+            logger.warning(
+                "⚠️  MISTRAL_API_KEY non configurée - endpoint /ask désactivé"
+            )
 
         logger.info("=" * 70)
         logger.info("✓ API PRÊTE À RECEVOIR DES REQUÊTES")
@@ -187,8 +186,8 @@ async def root():
             "health": "/health",
             "rebuild": "/rebuild",
             "rebuild_status": "/rebuild/status",
-            "docs": "/docs"
-        }
+            "docs": "/docs",
+        },
     }
 
 
@@ -199,7 +198,7 @@ async def health_check():
         status="ok" if vector_store and embeddings_model else "degraded",
         vector_store_loaded=vector_store is not None,
         embeddings_model_loaded=embeddings_model is not None,
-        mistral_client_loaded=mistral_client is not None
+        mistral_client_loaded=mistral_client is not None,
     )
 
 
@@ -214,7 +213,7 @@ async def get_stats():
         return StatsResponse(
             num_vectors=stats["num_vectors"],
             dimension=stats["dimension"],
-            index_path=FAISS_INDEX_PATH
+            index_path=FAISS_INDEX_PATH,
         )
     except Exception as e:
         logger.error(f"Erreur lors de la récupération des stats: {e}")
@@ -233,7 +232,9 @@ async def search(query: SearchQuery):
         Liste des résultats de recherche avec scores et métadonnées
     """
     if not vector_store or not embeddings_model:
-        raise HTTPException(status_code=503, detail="Vector store ou modèle d'embeddings non chargé")
+        raise HTTPException(
+            status_code=503, detail="Vector store ou modèle d'embeddings non chargé"
+        )
 
     try:
         logger.info(f"Recherche: '{query.query}' (k={query.k})")
@@ -249,7 +250,7 @@ async def search(query: SearchQuery):
                 title=doc.metadata.get("title", "Sans titre"),
                 content=doc.page_content,
                 location=doc.metadata.get("location"),
-                metadata=doc.metadata
+                metadata=doc.metadata,
             )
             formatted_results.append(result)
 
@@ -258,7 +259,7 @@ async def search(query: SearchQuery):
         return SearchResponse(
             query=query.query,
             results=formatted_results,
-            total_results=len(formatted_results)
+            total_results=len(formatted_results),
         )
 
     except Exception as e:
@@ -289,14 +290,13 @@ async def ask_question(query: AskQuery):
     """
     if not vector_store or not embeddings_model:
         raise HTTPException(
-            status_code=503,
-            detail="Vector store ou modèle d'embeddings non chargé"
+            status_code=503, detail="Vector store ou modèle d'embeddings non chargé"
         )
 
     if not mistral_client:
         raise HTTPException(
             status_code=503,
-            detail="Client Mistral AI non initialisé. Vérifiez MISTRAL_API_KEY dans .env"
+            detail="Client Mistral AI non initialisé. Vérifiez MISTRAL_API_KEY dans .env",
         )
 
     try:
@@ -308,7 +308,9 @@ async def ask_question(query: AskQuery):
 
         # 2. Formatage du contexte
         context_results = []
-        context_parts = ["Voici les informations pertinentes trouvées dans la base de données:\n"]
+        context_parts = [
+            "Voici les informations pertinentes trouvées dans la base de données:\n"
+        ]
 
         for i, (doc, score) in enumerate(results, 1):
             # Créer le SearchResult pour la réponse
@@ -317,12 +319,16 @@ async def ask_question(query: AskQuery):
                 title=doc.metadata.get("title", "Sans titre"),
                 content=doc.page_content,
                 location=doc.metadata.get("location"),
-                metadata=doc.metadata
+                metadata=doc.metadata,
             )
             context_results.append(search_result)
 
             # Formater pour le contexte textuel
-            content_preview = doc.page_content[:500] + "..." if len(doc.page_content) > 500 else doc.page_content
+            content_preview = (
+                doc.page_content[:500] + "..."
+                if len(doc.page_content) > 500
+                else doc.page_content
+            )
 
             context_parts.append(f"\n--- Résultat {i} (pertinence: {score:.3f}) ---")
             context_parts.append(f"Titre: {doc.metadata.get('title', 'Sans titre')}")
@@ -355,7 +361,9 @@ Réponds à la question en te basant sur les informations contextuelles ci-dessu
 
         if not system_prompt:
             # Fallback en cas de problème de chargement du fichier ps.md
-            logger.warning("⚠️  Aucun prompt système disponible, utilisation d'un prompt par défaut minimal")
+            logger.warning(
+                "⚠️  Aucun prompt système disponible, utilisation d'un prompt par défaut minimal"
+            )
             system_prompt = """Tu es un assistant spécialisé dans les événements culturels de la région Occitanie.
 Tu dois répondre aux questions des utilisateurs en te basant UNIQUEMENT sur les informations fournies dans le contexte.
 Si tu ne trouves pas l'information dans le contexte, dis-le clairement.
@@ -363,12 +371,16 @@ Sois précis, concis et utile."""
 
         messages = [
             SystemMessage(content=system_prompt, role="system"),
-            UserMessage(content=enriched_prompt, role="user")
+            UserMessage(content=enriched_prompt, role="user"),
         ]
 
         # 5. Appel à Mistral AI
-        logger.info(f"Appel à Mistral AI (modèle: {MISTRAL_MODEL})...")
-        response = mistral_client.chat.complete(model=MISTRAL_MODEL, messages=messages)
+        logger.info(f"Appel à Mistral AI (modèle: {MISTRAL_MODEL}, temperature: {MISTRAL_TEMPERATURE})...")
+        response = mistral_client.chat.complete(
+            model=MISTRAL_MODEL,
+            messages=messages,
+            temperature=MISTRAL_TEMPERATURE
+        )
 
         # 6. Extraction de la réponse
         answer = response.choices[0].message.content
@@ -377,7 +389,7 @@ Sois précis, concis et utile."""
         tokens_stats = {
             "prompt_tokens": response.usage.prompt_tokens,
             "completion_tokens": response.usage.completion_tokens,
-            "total_tokens": response.usage.total_tokens
+            "total_tokens": response.usage.total_tokens,
         }
 
         logger.info(f"✓ Réponse générée (tokens: {tokens_stats['total_tokens']})")
@@ -386,7 +398,7 @@ Sois précis, concis et utile."""
             question=query.question,
             answer=answer,
             context_used=context_results,
-            tokens_used=tokens_stats
+            tokens_used=tokens_stats,
         )
 
     except Exception as e:
@@ -420,6 +432,7 @@ async def run_rebuild_pipeline():
 
         # Récupérer la date de dernière mise à jour
         from pymongo import MongoClient
+
         mongodb_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
         db_name = os.getenv("MONGODB_DB_NAME", "OA")
 
@@ -451,12 +464,14 @@ async def run_rebuild_pipeline():
                 ]
 
                 # Compter les événements créés ou mis à jour depuis la dernière exécution
-                new_events_count = events_collection.count_documents({
-                    "$or": [
-                        {"createdAt": {"$gte": last_update_date}},
-                        {"updatedAt": {"$gte": last_update_date}}
-                    ]
-                })
+                new_events_count = events_collection.count_documents(
+                    {
+                        "$or": [
+                            {"createdAt": {"$gte": last_update_date}},
+                            {"updatedAt": {"$gte": last_update_date}},
+                        ]
+                    }
+                )
 
                 logger.info(
                     f"📊 Événements nouveaux/modifiés depuis la dernière "
@@ -484,10 +499,12 @@ async def run_rebuild_pipeline():
         # Exécuter le pipeline de mise à jour
         logger.info(f"Exécution du script: {script_path}")
         process = await asyncio.create_subprocess_exec(
-            "uv", "run", "python", script_path,
+            sys.executable,
+            "-m",
+            "src.update_pipeline",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=project_root
+            cwd=project_root,
         )
 
         stdout, stderr = await process.communicate()
@@ -502,7 +519,7 @@ async def run_rebuild_pipeline():
                 vector_store = load_vector_store(
                     load_path=FAISS_INDEX_PATH,
                     embeddings=embeddings_model,
-                    verbose=False
+                    verbose=False,
                 )
 
                 # Afficher les nouvelles statistiques
@@ -519,7 +536,7 @@ async def run_rebuild_pipeline():
             except Exception as reload_error:
                 logger.error(
                     f"❌ Erreur lors du rechargement de l'index: {reload_error}",
-                    exc_info=True
+                    exc_info=True,
                 )
                 rebuild_status["status"] = "success_with_warning"
                 rebuild_status["message"] = (
@@ -573,8 +590,8 @@ async def rebuild_index(background_tasks: BackgroundTasks):
             last_update_date=rebuild_status.get("last_update_date"),
             details={
                 "started_at": rebuild_status.get("started_at"),
-                "current_status": rebuild_status.get("message")
-            }
+                "current_status": rebuild_status.get("message"),
+            },
         )
 
     rebuild_in_progress = True
@@ -587,7 +604,7 @@ async def rebuild_index(background_tasks: BackgroundTasks):
             "Utilisez GET /rebuild/status pour suivre la progression."
         ),
         last_update_date=None,
-        details={"started_at": datetime.now().isoformat()}
+        details={"started_at": datetime.now().isoformat()},
     )
 
 
@@ -605,8 +622,8 @@ async def rebuild_status_endpoint():
         last_update_date=rebuild_status.get("last_update_date"),
         details={
             "started_at": rebuild_status.get("started_at"),
-            "in_progress": rebuild_in_progress
-        }
+            "in_progress": rebuild_in_progress,
+        },
     )
 
 
@@ -614,10 +631,4 @@ if __name__ == "__main__":
     import uvicorn
 
     # Démarrage du serveur en mode développement
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

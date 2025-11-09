@@ -350,5 +350,13 @@
         </child>
       </child>
     </element>
+    <element xsi:type="archimate:ArchimateDiagramModel" name="Collecte" id="id-cb5c59bc6c9b4043969a67085adbfb79">
+      <child xsi:type="archimate:DiagramObject" id="id-f707e23863d34c0f82f98b164054844c" archimateElement="id-2fc28f001fea4feaaff9466aff816ad6">
+        <bounds x="272" y="173" width="120" height="55"/>
+      </child>
+      <child xsi:type="archimate:DiagramObject" id="id-f81edcc99a194385be876c28d4531e74" archimateElement="id-49045b0f80364c30acca0d7e1dac2e9b">
+        <bounds x="627" y="159" width="120" height="55"/>
+      </child>
+    </element>
   </folder>
 </archimate:model>

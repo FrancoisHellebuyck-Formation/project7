@@ -1,0 +1,103 @@
+{
+  "description": "Dataset de test pour l'évaluation RAGAS du système RAG",
+  "version": "2.0",
+  "region": "Occitanie",
+  "metadata": {
+    "created_at": "2025-01-05",
+    "updated_at": "2025-01-05",
+    "purpose": "Évaluation RAGAS du système RAG Puls-Events",
+    "notes": "Structure conforme aux recommandations RAGAS : question, answer, contexts, ground_truth. Les champs 'answer' et 'contexts' peuvent être soit pré-collectés, soit collectés dynamiquement par le script."
+  },
+  "test_cases": [
+    {
+      "id": "test_noel_001",
+      "category": "Noel",
+      "location": "Occitanie",
+      "question": "Y a-t-il des marchés de noel en Occitanie cette année ?",
+      "answer": null,
+      "contexts": null,
+      "ground_truth": "Bien sûr ! Voici les marchés de Noël que j'ai trouvés en Occitanie cette année :\n\n- **Marché de Noël en nocturne**\n  - **Lieu :** Noueilles (Haute-Garonne)\n  - **Date :** Jeudi 4 décembre 2025, de 17h00 à 21h00\n  - **Description :** Vin chaud offert aux visiteurs.\n  - **Lieu précis :** Place du village, Noueilles\n\n- **Marché de Noël**\n  - **Lieu :** Flourens (Haute-Garonne)\n  - **Date :** Dimanche 7 décembre 2025, de 10h00 à 18h00\n  - **Description :** Artisanat d'art, spécialités de Noël, animations pour les enfants, restauration sur place.\n  - **Lieu précis :** Salle des fêtes de Flourens, 2-3 Rue de l'Eglise, 31130 Flourens\n\n- **Foire au Gras et aux Volailles Festives**\n  - **Lieu :** Thuir (Pyrénées-Orientales)\n  - **Date :** Dimanche 7 décembre 2025, de 8h00 à 17h00\n  - **Description :** Marché des producteurs de pays, spécialités festives.\n  - **Lieu précis :** Non précisé dans les sources\n\nCes événements devraient vous offrir une belle immersion dans l'ambiance de Noël en Occitanie !",
+      "notes": ""
+    },
+    {
+      "id": "test_noel_002",
+      "category": "Noel",
+      "location": "Occitanie",
+      "question": "Donne moi plus d'information sur le marché de noel de Noueilles",
+      "answer": null,
+      "contexts": null,
+      "ground_truth": "Bien sûr ! Voici les informations disponibles sur le **Marché de Noël en nocturne** à Noueilles :\n\n- **Nom de l'événement :** Marché de Noël en nocturne\n- **Lieu :** Noueilles (Place du village) - **Haute-Garonne, Occitanie**\n- **Date et heure :** Jeudi 4 décembre 2025, de **17h00 à 21h00**\n-",
+      "notes": ""
+    },
+    {
+      "id": "test_noel_003",
+      "category": "Noel",
+      "location": "Occitanie",
+      "question": "Quand commence le marché de noel de Noueilles",
+      "answer": null,
+      "contexts": null,
+      "ground_truth": "Le **Marché de Noël en nocturne** à Noueilles (Occitanie) commence le **jeudi 4 décembre 2025 à 17h00** et se termine à **21h00**. Il se tiendra sur la **Place du village** ",
+      "notes": ""
+    },
+    {
+      "id": "test_TGS_001",
+      "category": "TGS",
+      "location": "Occitanie",
+      "question": "Quand a lieu le TGS ?",
+      "answer": null,
+      "contexts": null,
+      "ground_truth": "Le TGS - Toulouse Game Show se tiendra les samedi 29 et dimanche 30 novembre 2025 à Aussonne (Haute-Garonne).C'est un événement dédié à la **pop culture** avec des invités, des animations et des activités autour des jeux vidéo, de la bande dessinée, du cinéma, etc.Pour plus de détails, vous pouvez consulter les conditions de billetterie et le programme sur les sources officielles.",
+      "notes": ""
+    },
+    {
+      "id": "test_TGS_002",
+      "category": "TGS",
+      "location": "Occitanie",
+      "question": "Quel sont les prix du TGS ?",
+      "answer": null,
+      "contexts": null,
+      "ground_truth": "Toulouse Game Show** qui se tiendra à **Aussonne** les **29 et 30 novembre 2025** :\n\n- **Billet 1 jour** : 20€\n- **Billet 2 jours** : 30€\n- **Billet famille 1 jour** : 55€\n- **Billet express 2 jours** : 50€\n- **Billet VIP 2 jours** : 100€\n\nCes tarifs correspondent aux options proposées pour l'édition 2025 du salon dédié à la pop culture",
+      "notes": ""
+    },
+    {
+      "id": "test_TGS_003",
+      "category": "TGS",
+      "location": "Occitanie",
+      "question": "Quel est le programme du TGS  ?",
+      "answer": null,
+      "contexts": null,
+      "ground_truth": "** Rendez-vous majeur de la pop culture avec plus de 30 invités.\n\nPour connaître le programme complet, je vous recommande de consulter le site officiel de l'événement ou de vérifier les mises à jour ultérieures.",
+      "notes": ""
+    },
+    {
+      "id": "test_kiwi_001",
+      "category": "Fête du kiwi",
+      "location": "Occitanie",
+      "question": "Quand a lieu la fête du kiwi ?",
+      "answer": null,
+      "contexts": null,
+      "ground_truth": "La **Fête du Kiwi** se déroulera à **Ramonville-Saint-Agne** le **samedi 31 janvier 2026** de **16h30 à 22h30**.",
+      "notes": ""
+    },
+    {
+      "id": "test_kiwi_002",
+      "category": "Fête du kiwi",
+      "location": "Occitanie",
+      "question": "Que propose le bal trad de la fête du kiwi ?",
+      "answer": null,
+      "contexts": null,
+      "ground_truth": "D'après les informations disponibles, le **Bal Trad** dans le cadre de la **Fête du Kiwi** à Ramonville-Saint-Agne propose un spectacle suivi d'un bal traditionnel. Voici les détails :\n\n- **Nom de l'événement :** LE BAL TRAD S’INVITE AU KIWI !\n- **Lieu :** Ramonville-Saint-Agne (Haute-Garonne, Occitanie)\n- **Date :** Vendredi 30 janvier 2026, à partir de 19h00\n- **Description :** Spectacle + bal traditionnel\n- **Conditions :** 5 € (spectacle + bal trad)",
+      "notes": ""
+    },
+    {
+      "id": "test_offtopic_001",
+      "category": "Hors sujet",
+      "location": "Occitanie",
+      "question": "Peux-tu me donner une recette de cuisine avec du kiwi ?",
+      "answer": null,
+      "contexts": null,
+      "ground_truth": "Je suis désolé, mais je ne peux pas vous fournir de recette de cuisine avec du kiwi, car ma base de connaissances ne contient pas d'informations culinaires. Je suis spécialisé dans les événements culturels en Occitanie. Cependant, je peux vous parler d'événements qui se déroulent au **Kiwi**, un lieu culturel à Ramonville-Saint-Agne (Haute-Garonne, Occitanie).",
+      "notes": ""
+    }
+  ]
+}

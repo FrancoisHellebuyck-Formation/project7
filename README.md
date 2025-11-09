@@ -2,25 +2,34 @@
 
 Système de recherche sémantique et chatbot conversationnel pour les événements culturels d'Occitanie, combinant RAG (Retrieval Augmented Generation) et Mistral AI.
 
-> 📖 **Documentation complète** : Consultez [ARCHITECTURE.md](ARCHITECTURE.md) pour une vue détaillée de l'architecture et des flux de données.
+> 📖 **Documentation complète** : Consultez [ARCHITECTURE.md](ARCHITECTURE.md) pour une vue détaillée de l'architecture et [rapport/technique.md](rapport/technique.md) pour une analyse approfondie.
 
 ## Démarrage rapide avec Docker
 
 ### Prérequis
 
 - Docker et Docker Compose installés
-- L'index FAISS généré dans `data/faiss_index/`
+- Une clé API OpenAgenda et Mistral AI.
+- Un fichier `.env` configuré à la racine du projet. Vous pouvez utiliser le template :
+  ```bash
+  cp .env.example .env
+  ```
+  Puis, remplissez les clés API (`OA_API_KEY`, `MISTRAL_API_KEY`).
 
 ### Lancer l'infrastructure complète
 
 ```bash
-# Démarrer MongoDB + API
-docker-compose up -d
+# 1. Construire l'index vectoriel (si non existant)
+# Cette commande va télécharger les données, les traiter et créer l'index FAISS.
+make run-all
+
+# 2. Démarrer les services (API + MongoDB)
+docker-compose up -d --build
 
 # Vérifier que les services sont démarrés
 docker-compose ps
 
-# Voir les logs
+# Consulter les logs de l'API
 docker-compose logs -f api
 ```
 
@@ -115,8 +124,8 @@ OpenAgenda API → MongoDB → Chunking → Embeddings → FAISS Index
                                                     FastAPI
                                                          ↓
                                           ┌──────────────┼──────────┐
-                                          ▼              ▼          ▼
-                                     CLI Script    API Client   Streamlit UI
+                                          ▼                         ▼
+                                     CLI Script                API Client
 ```
 
 ### Technologies principales
