@@ -86,14 +86,14 @@ Puls-Events est un système de recherche sémantique et de chatbot conversationn
 │  └───────────┬──────────────────────────────────────────┘           │
 └──────────────┼──────────────────────────────────────────────────────┘
                │
-    ┌──────────┼──────────┐
-    ▼          ▼          ▼
-┌─────────┐ ┌──────┐ ┌────────────┐
-│ CLI     │ │ API  │ │ Streamlit  │
-│ Script  │ │Client│ │ Web UI     │
-│mistral  │ │      │ │chatbot.py  │
-│.py      │ │      │ │Port: 8501  │
-└─────────┘ └──────┘ └────────────┘
+    ┌──────────┼─
+    ▼          ▼     
+┌─────────┐ ┌──────┐ 
+│ CLI     │ │ API  │ 
+│ Script  │ │Client│ 
+│mistral  │ │      │ 
+│.py      │ │      │ 
+└─────────┘ └──────┘ 
 ```
 
 ## 🔄 Flux de données détaillés
@@ -216,38 +216,6 @@ User Question: "Quel est le meilleur festival de jazz en été ?"
                  └─► tokens_used: {prompt, completion, total}
 ```
 
-### 5. Flux Streamlit UI
-
-```
-User (Browser :8501)
-      │
-      ├─► Input: Question dans le chat
-      │
-      ▼
-┌──────────────────────────────────────┐
-│ Streamlit App (ui/chatbot.py)       │
-├──────────────────────────────────────┤
-│ 1. init_session_state()             │
-│    └─► messages: []                 │
-│    └─► conversation_started: False  │
-│                                      │
-│ 2. add_message(user, question)      │
-│    └─► Ajout à st.session_state     │
-│                                      │
-│ 3. call_ask_api(question, k=5)      │
-│    ├─► POST localhost:8000/ask      │
-│    ├─► Timeout: 30s                 │
-│    └─► Response: {answer, context}  │
-│                                      │
-│ 4. display_chat_message()           │
-│    ├─► Avatar: 🎭                   │
-│    ├─► Réponse formatée             │
-│    └─► Détails (tokens, sources)   │
-│                                      │
-│ 5. add_message(assistant, answer)   │
-│    └─► Sauvegarde en historique     │
-└──────────────────────────────────────┘
-```
 
 ## 📦 Structure des modules
 
@@ -323,18 +291,6 @@ chat/
 └── ps.md                  # Prompt système Puls-Events
 ```
 
-### Package `ui/`
-**Responsabilité :** Interface web Streamlit
-
-```
-ui/
-├── chatbot.py             # Application Streamlit
-│   ├── init_session_state()
-│   ├── call_ask_api()
-│   ├── display_chat_message()
-│   └── main()
-└── README.md
-```
 
 ### Module `pipeline.py`
 **Responsabilité :** Orchestration complète
@@ -366,7 +322,7 @@ pipeline.py
 - **Connexion MongoDB :** Fermeture dans finally block
 - **Embeddings :** Détection automatique du device
 - **API REST :** HTTPException avec codes appropriés
-- **Streamlit :** Messages utilisateur explicites
+
 
 ### Logging
 
@@ -473,4 +429,4 @@ logger.error(f"❌ Erreur: {e}", exc_info=True)
 - **E5 Embeddings** : https://huggingface.co/intfloat/multilingual-e5-large
 - **Mistral AI** : https://docs.mistral.ai/
 - **FastAPI** : https://fastapi.tiangolo.com/
-- **Streamlit** : https://docs.streamlit.io/
+
